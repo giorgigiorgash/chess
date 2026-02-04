@@ -341,6 +341,146 @@
                     .sort((a, b) => (b.s - a.s) || (a.i - b.i))
                     .map((x) => x.m);
             }
+
+            /* =============================
+            STOCKFISH (ELO ENGINE)
+            ============================= */
+
+            // Uses Stockfish WASM via an inline (Blob) WebWorker so this project can be deployed
+            // as a single-file static site (e.g. Vercel). Engine is loaded from a CDN.
+            let stockfish = null;
+            let stockfishReady = false;
+            let stockfishBusy = false;
+            let stockfishResolve = null;
+            let stockfishReject = null;
+            let stockfishLastRequestId = 0;
+            let stockfishWorkerUrl = null;
+
+            // CDN engine (single-thread lite build keeps startup fast and works on Vercel)
+            const STOCKFISH_ENGINE_URL =
+                "https://cdn.jsdelivr.net/npm/stockfish@17.1.0/src/stockfish-17.1-lite-single-03e3232.js";
+
+            function clamp(n, min, max) {
+                return Math.max(min, Math.min(max, n));
+            }
+
+            function eloToStockfishSettings(elo) {
+                // Slider is 400–2800. Stockfish UCI_Elo is commonly 1320–3190.
+                // We map the full slider to Skill Level 0–20, and clamp UCI_Elo to supported range.
+                const skill = clamp(Math.round(((elo - 400) / (2800 - 400)) * 20), 0, 20);
+                const uciElo = clamp(Math.round(elo), 1320, 3190);
+
+                // Keep moves snappy. Higher ELO gets slightly more time but stays fast.
+                const movetimeMs = clamp(Math.round(80 + ((elo - 400) / (2800 - 400)) * 270), 80, 350);
+
+                return { skill, uciElo, movetimeMs };
+            }
+
+            function initStockfish() {
+                try {
+                    // Inline worker: keeps repo as one file. Worker loads Stockfish from CDN.
+                    const workerCode = `importScripts(${JSON.stringify(STOCKFISH_ENGINE_URL)});`;
+                    const blob = new Blob([workerCode], { type: "text/javascript" });
+                    stockfishWorkerUrl = URL.createObjectURL(blob);
+                    stockfish = new Worker(stockfishWorkerUrl);
+                } catch (e) {
+                    console.warn("Stockfish worker failed to start:", e);
+                    stockfish = null;
+                    stockfishReady = false;
+                    return;
+                }
+
+                stockfish.onmessage = (event) => {
+                    const line = String(event.data || "").trim();
+                    if (!line) return;
+
+                    if (line === "uciok") {
+                        stockfish.postMessage("isready");
+                        return;
+                    }
+                    if (line === "readyok") {
+                        stockfishReady = true;
+                        return;
+                    }
+
+                    if (line.startsWith("bestmove ")) {
+                        const parts = line.split(/\s+/);
+                        const best = parts[1];
+                        const resolve = stockfishResolve;
+                        const reject = stockfishReject;
+                        stockfishResolve = null;
+                        stockfishReject = null;
+                        stockfishBusy = false;
+
+                        if (!resolve) return;
+                        if (!best || best === "(none)") return reject?.(new Error("No bestmove"));
+                        resolve(best);
+                    }
+                };
+
+                stockfish.onerror = (err) => {
+                    console.warn("Stockfish worker error:", err);
+                    stockfishReady = false;
+                    stockfishBusy = false;
+                    stockfishResolve = null;
+                    stockfishReject = null;
+                };
+
+                // Boot sequence
+                stockfish.postMessage("uci");
+            }
+
+            function requestStockfishBestMove(fen, elo) {
+                return new Promise((resolve, reject) => {
+                    if (!stockfish || !stockfishReady) {
+                        reject(new Error("Stockfish not ready"));
+                        return;
+                    }
+                    if (stockfishBusy) {
+                        reject(new Error("Stockfish is busy"));
+                        return;
+                    }
+
+                    stockfishBusy = true;
+                    stockfishResolve = resolve;
+                    stockfishReject = reject;
+                    stockfishLastRequestId++;
+
+                    const { skill, uciElo, movetimeMs } = eloToStockfishSettings(elo);
+
+                    // Strength controls (speed-only tuning is via movetime, strength via options)
+                    stockfish.postMessage("ucinewgame");
+                    stockfish.postMessage("setoption name Threads value 1");
+                    stockfish.postMessage("setoption name Hash value 16");
+                    stockfish.postMessage(`setoption name Skill Level value ${skill}`);
+                    stockfish.postMessage("setoption name UCI_LimitStrength value true");
+                    stockfish.postMessage(`setoption name UCI_Elo value ${uciElo}`);
+
+                    stockfish.postMessage("position fen " + fen);
+                    stockfish.postMessage("go movetime " + movetimeMs);
+                });
+            }
+
+            function applyUciMoveToGame(uci) {
+                // uci: e2e4 or e7e8q
+                if (!uci || uci.length < 4) return false;
+                const from = uci.slice(0, 2);
+                const to = uci.slice(2, 4);
+                const promotion = uci.length >= 5 ? uci[4] : undefined;
+                const moveObj = promotion ? { from, to, promotion } : { from, to };
+                const m = game.move(moveObj);
+                return m !== null;
+            }
+
+            // Start Stockfish as soon as the page loads
+            initStockfish();
+
+            // Cleanup Blob URL on page unload
+            window.addEventListener("beforeunload", () => {
+                try {
+                    if (stockfishWorkerUrl) URL.revokeObjectURL(stockfishWorkerUrl);
+                } catch (_) {}
+            });
             
             
             /* =============================
@@ -441,16 +581,51 @@
                     // Clear cache each move to keep memory bounded and results consistent
                     transpositionTable.clear();
             
+                    // Prefer Stockfish for ELO-based play (much faster & stronger than JS minimax)
+                    if (stockfish && stockfishReady) {
+                        const fen = game.fen();
+                        requestStockfishBestMove(fen, currentElo)
+                            .then((uci) => {
+                                // Keep some human-like mistakes using your randomness setting
+                                if (Math.random() < randomness) {
+                                    const moves = game.moves();
+                                    const randomMove = moves[Math.floor(Math.random() * moves.length)];
+                                    game.move(randomMove);
+                                } else {
+                                    applyUciMoveToGame(uci);
+                                }
+                                board.position(game.fen());
+                                aiThinking = false;
+                                updateUI();
+                                checkGameOver();
+                            })
+                            .catch(() => {
+                                // Fallback to existing JS engine if Stockfish fails
+                                let move;
+                                if (Math.random() < randomness) {
+                                    const moves = game.moves();
+                                    move = moves[Math.floor(Math.random() * moves.length)];
+                                } else {
+                                    move = getBestMove(depth, moveConsideration);
+                                }
+                                game.move(move);
+                                board.position(game.fen());
+                                aiThinking = false;
+                                updateUI();
+                                checkGameOver();
+                            });
+                        return;
+                    }
+
+                    // Fallback: existing JS minimax engine
                     let move;
-            
-                    // Random mistake based on ELO
                     if (Math.random() < randomness) {
                         const moves = game.moves();
                         move = moves[Math.floor(Math.random() * moves.length)];
                     } else {
                         move = getBestMove(depth, moveConsideration);
                     }
-            
+
                     game.move(move);
                     board.position(game.fen());
                     aiThinking = false;
