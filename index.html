@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>♟️ CHESS DUEL ARENA PRO</title>
+            
+            <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+            <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+            <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+            <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+            
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+                
+                :root {
+                    --primary-green: #81b64c;
+                    --dark-green: #739a45;
+                    --light-square: #eeeed2;
+                    --dark-square: #769656;
+                    --bg-dark: #262421;
+                    --bg-sidebar: #1f1e1b;
+                    --text-light: #ffffff;
+                    --accent-gold: #ffcf40;
+                }
+
+                body {
+                    font-family: 'Poppins', sans-serif;
+                    background: var(--bg-dark);
+                    color: var(--text-light);
+                    margin: 0;
+                    display: flex;
+                    justify-content: center;
+                    min-height: 100vh;
+                    padding: 0;
+                }
+
+                .container {
+                    width: 100%;
+                    max-width: 1200px;
+                    padding: 20px;
+                    display: grid;
+                    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 320px);
+                    gap: 20px;
+                    grid-template-areas: "left board right";
+                }
+
+                /* Sidebar Styling */
+                .sidebar {
+                    background: var(--bg-sidebar);
+                    padding: 20px;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                }
+
+                h1 { font-size: 1.5rem; margin-bottom: 10px; color: var(--primary-green); text-align: center; }
+                h2 { font-size: 0.9rem; text-transform: uppercase; color: #8b8987; letter-spacing: 1px; }
+
+                /* Board Container */
+                #board-container {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    grid-area: board;
+                }
+
+                #myBoard {
+                    width: 100%;
+                    max-width: 600px;
+                    border-radius: 4px;
+                    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+                }
+
+                /* Place sidebars in grid areas (desktop) */
+                .container > .sidebar:first-of-type { grid-area: left; }
+                .container > .sidebar:last-of-type { grid-area: right; }
+
+                /* UI Elements */
+                .btn {
+                    background: #3d3b38;
+                    color: white;
+                    border: none;
+                    padding: 12px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+
+                .btn-primary { background: var(--primary-green); }
+                .btn-primary:hover { background: var(--dark-green); transform: translateY(-2px); }
+
+                /* ELO Slider Styling */
+                .difficulty-container {
+                    background: #2b2926;
+                    padding: 15px;
+                    border-radius: 8px;
+                    margin: 10px 0;
+                }
+
+                .elo-display {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                }
+
+                #elo-value {
+                    font-size: 1.4rem;
+                    font-weight: 700;
+                    color: var(--accent-gold);
+                }
+
+                input[type=range] {
+                    width: 100%;
+                    cursor: pointer;
+                    accent-color: var(--primary-green);
+                }
+
+                /* History & Status */
+                #move-history {
+                    flex-grow: 1;
+                    background: #2b2926;
+                    border-radius: 8px;
+                    padding: 10px;
+                    font-size: 0.85rem;
+                    overflow-y: auto;
+                    max-height: 300px;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 5px;
+                }
+
+                .move-entry {
+                    background: #3d3b38;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                }
+
+                #status-bar {
+                    padding: 15px;
+                    background: #1a1917;
+                    border-radius: 8px;
+                    text-align: center;
+                    font-weight: 600;
+                }
+
+                /* Thinking indicator */
+                .thinking {
+                    color: var(--accent-gold);
+                    animation: pulse 1s infinite;
+                }
+
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                }
+
+                /* Modal Styling */
+                .modal-overlay {
+                    position: fixed;
+                    top: 0; left: 0; width: 100%; height: 100%;
+                    background: rgba(0,0,0,0.85);
+                    display: none;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 1000;
+                    backdrop-filter: blur(5px);
+                }
+
+                .modal {
+                    background: #312e2b;
+                    padding: 40px;
+                    border-radius: 16px;
+                    text-align: center;
+                    max-width: 400px;
+                    width: 90%;
+                    border: 2px solid var(--primary-green);
+                    animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+                }
+
+                @keyframes popIn {
+                    from { transform: scale(0.5); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+
+                .modal h2 { font-size: 2rem; color: white; margin-bottom: 10px; }
+                .modal p { color: #baca44; margin-bottom: 25px; }
+
+                /* Chess.com style highlighting */
+                .highlight-white { background-color: #f6f669 !important; }
+                .highlight-black { background-color: #baca44 !important; }
+
+                /* =============================
+                   RESPONSIVE LAYOUT
+                   ============================= */
+
+                /* Large tablets / small laptops: board first, sidebars stacked */
+                @media (max-width: 1024px) {
+                    body { justify-content: flex-start; }
+
+                    .container {
+                        max-width: 900px;
+                        padding: 16px;
+                        grid-template-columns: 1fr;
+                        grid-template-areas:
+                            "board"
+                            "left"
+                            "right";
+                    }
+
+                    #myBoard {
+                        max-width: 560px;
+                    }
+
+                    #move-history {
+                        max-height: 260px;
+                    }
+                }
+
+                /* Phones: tighter spacing, single-column history */
+                @media (max-width: 600px) {
+                    .container { padding: 12px; gap: 12px; }
+                    .sidebar { padding: 14px; border-radius: 10px; }
+
+                    h1 { font-size: 1.25rem; }
+                    #status-bar { padding: 12px; font-size: 0.95rem; }
+
+                    #myBoard {
+                        /* keep board readable while fitting small screens */
+                        max-width: 92vw;
+                    }
+
+                    #move-history {
+                        grid-template-columns: 1fr;
+                        max-height: 220px;
+                        font-size: 0.82rem;
+                    }
+
+                    #captured-pieces { font-size: 1.25rem; }
+
+                    .btn { padding: 11px; }
+                }
+            </style>
+        </head>
+        <body>
+
+        <div class="container">
+            <div class="sidebar">
+                <h1>♟ ARENA PRO</h1>
+                
+                <div class="difficulty-container">
+                    <div class="elo-display">
+                        <h2>AI Difficulty</h2>
+                        <span id="elo-value">1200</span>
+                    </div>
+                    <input type="range" id="elo-slider" min="400" max="2800" step="100" value="1200">
+                    <div style="font-size: 0.7rem; display: flex; justify-content: space-between; margin-top: 5px; color: #666;">
+                        <span>Newbie</span>
+                        <span>Grandmaster</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="start-ai">Play vs Computer</button>
+                <button class="btn" id="start-local">Play vs Friend</button>
+                <button class="btn" style="margin-top: auto;" id="undo-btn">Undo Move</button>
+                <button class="btn" id="reset-btn">New Game</button>
+            </div>
+
+            <div id="board-container">
+                <div id="status-bar">Select a mode to start</div>
+                <div id="myBoard"></div>
+            </div>
+
+            <div class="sidebar">
+                <h2>Move History</h2>
+                <div id="move-history"></div>
+                
+                <h2>Captured</h2>
+                <div id="captured-pieces" style="display: flex; flex-wrap: wrap; gap: 5px; font-size: 1.5rem;"></div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="modal-overlay">
+            <div class="modal">
+                <h2 id="modal-title">Checkmate!</h2>
+                <p id="modal-body">White wins the duel.</p>
+                <button class="btn btn-primary" onclick="closeModal()">Play Again</button>
+            </div>
+        </div>
+
+        <script>
+            /* =============================
+            GLOBAL STATE
+            ============================= */
+            
+            let board = null;
+            let game = new Chess();
+            let gameMode = "ai";
+            let currentElo = 1200;
+            let aiThinking = false;
+            
+            
+            /* =============================
+            ELO → AI SETTINGS (OPTIMIZED)
+            ============================= */
+            
+            function getAISettings(elo) {
+                let depth;
+                let randomness;
+                let moveConsideration; // How many top moves to consider
+            
+                if (elo < 800) {
+                    depth = 1;
+                    randomness = 0.7;
+                    moveConsideration = 0.3; // 30% of moves
+                }
+                else if (elo < 1200) {
+                    depth = 2;
+                    randomness = 0.5;
+                    moveConsideration = 0.4;
+                }
+                else if (elo < 1600) {
+                    depth = 2;
+                    randomness = 0.3;
+                    moveConsideration = 0.6;
+                }
+                else if (elo < 2000) {
+                    depth = 3;
+                    randomness = 0.15;
+                    moveConsideration = 0.7;
+                }
+                else if (elo < 2400) {
+                    depth = 3;
+                    randomness = 0.08;
+                    moveConsideration = 0.85;
+                }
+                else {
+                    depth = 3; // Keep at 3 for performance
+                    randomness = 0.03;
+                    moveConsideration = 1.0; // Consider all moves
+                }
+            
+                return { depth, randomness, moveConsideration };
+            }
+            
+            
+            /* =============================
+            BOARD CONTROL
+            ============================= */
+            
+            function onDragStart(source, piece) {
+                if (game.game_over()) return false;
+                if (gameMode === "ai" && piece.startsWith("b")) return false;
+                if (aiThinking) return false;
+            }
+            
+            
+            function onDrop(source, target) {
+                const move = game.move({
+                    from: source,
+                    to: target,
+                    promotion: "q"
+                });
+            
+                if (move === null) return "snapback";
+            
+                updateUI();
+            
+                if (gameMode === "ai" && !game.game_over()) {
+                    setTimeout(makeAIMove, 100);
+                }
+            
+                checkGameOver();
+            }
+            
+            
+            function resetGame() {
+                aiThinking = false;
+                game.reset();
+                board.position("start");
+                updateUI();
+            }
+            
+            
+            /* =============================
+            AI MAIN LOGIC (OPTIMIZED)
+            ============================= */
+            
+            function makeAIMove() {
+                if (game.game_over()) return;
+            
+                aiThinking = true;
+                updateUI(); // Show "thinking" status
+            
+                // Use setTimeout to prevent UI blocking
+                setTimeout(() => {
+                    const { depth, randomness, moveConsideration } = getAISettings(currentElo);
+            
+                    let move;
+            
+                    // Random mistake based on ELO
+                    if (Math.random() < randomness) {
+                        const moves = game.moves();
+                        move = moves[Math.floor(Math.random() * moves.length)];
+                    } else {
+                        move = getBestMove(depth, moveConsideration);
+                    }
+            
+                    game.move(move);
+                    board.position(game.fen());
+                    aiThinking = false;
+                    updateUI();
+                    checkGameOver();
+                }, 50);
+            }
+            
+            
+            /* =============================
+            OPTIMIZED MINIMAX ENGINE
+            ============================= */
+            
+            function getBestMove(depth, moveConsideration) {
+                let bestMove = null;
+                let bestValue = -Infinity;
+            
+                const allMoves = game.moves();
+                
+                // Pre-sort moves by basic heuristics for better pruning
+                const sortedMoves = sortMovesByPriority(allMoves);
+                
+                // Only consider a percentage of moves based on ELO
+                const movesToConsider = Math.max(
+                    3, // Always consider at least 3 moves
+                    Math.ceil(sortedMoves.length * moveConsideration)
+                );
+                
+                const moves = sortedMoves.slice(0, movesToConsider);
+            
+                for (let move of moves) {
+                    game.move(move);
+                    let value = minimax(depth - 1, -Infinity, Infinity, false);
+                    game.undo();
+            
+                    if (value > bestValue) {
+                        bestValue = value;
+                        bestMove = move;
+                    }
+                }
+            
+                return bestMove;
+            }
+            
+            
+            // Prioritize captures and checks for better move ordering
+            function sortMovesByPriority(moves) {
+                return moves.sort((a, b) => {
+                    const moveA = game.move(a);
+                    const scoreA = (moveA.captured ? 10 : 0) + (game.in_check() ? 5 : 0);
+                    game.undo();
+                    
+                    const moveB = game.move(b);
+                    const scoreB = (moveB.captured ? 10 : 0) + (game.in_check() ? 5 : 0);
+                    game.undo();
+                    
+                    return scoreB - scoreA;
+                });
+            }
+            
+            
+            function minimax(depth, alpha, beta, maximizingPlayer) {
+                if (depth === 0 || game.game_over()) {
+                    return evaluateBoard();
+                }
+            
+                const moves = game.moves();
+            
+                if (maximizingPlayer) {
+                    let maxEval = -Infinity;
+            
+                    for (let move of moves) {
+                        game.move(move);
+                        let eval = minimax(depth - 1, alpha, beta, false);
+                        game.undo();
+            
+                        maxEval = Math.max(maxEval, eval);
+                        alpha = Math.max(alpha, eval);
+            
+                        if (beta <= alpha) break; // Alpha-beta pruning
+                    }
+            
+                    return maxEval;
+                }
+                else {
+                    let minEval = Infinity;
+            
+                    for (let move of moves) {
+                        game.move(move);
+                        let eval = minimax(depth - 1, alpha, beta, true);
+                        game.undo();
+            
+                        minEval = Math.min(minEval, eval);
+                        beta = Math.min(beta, eval);
+            
+                        if (beta <= alpha) break; // Alpha-beta pruning
+                    }
+            
+                    return minEval;
+                }
+            }
+            
+            
+            /* =============================
+            ENHANCED BOARD EVALUATION
+            ============================= */
+            
+            function evaluateBoard() {
+                if (game.in_checkmate()) {
+                    return game.turn() === 'b' ? -100000 : 100000;
+                }
+                if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
+                    return 0;
+                }
+            
+                let score = 0;
+                const boardState = game.board();
+            
+                // Piece-square tables for positional play
+                const pawnTable = [
+                    0,  0,  0,  0,  0,  0,  0,  0,
+                    50, 50, 50, 50, 50, 50, 50, 50,
+                    10, 10, 20, 30, 30, 20, 10, 10,
+                    5,  5, 10, 25, 25, 10,  5,  5,
+                    0,  0,  0, 20, 20,  0,  0,  0,
+                    5, -5,-10,  0,  0,-10, -5,  5,
+                    5, 10, 10,-20,-20, 10, 10,  5,
+                    0,  0,  0,  0,  0,  0,  0,  0
+                ];
+            
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 0; j < 8; j++) {
+                        const piece = boardState[i][j];
+            
+                        if (piece !== null) {
+                            let pieceValue = getPieceValue(piece);
+                            
+                            // Add positional bonus for pawns
+                            if (piece.type === 'p') {
+                                const tableIndex = piece.color === 'b' ? i * 8 + j : (7 - i) * 8 + j;
+                                pieceValue += (piece.color === 'b' ? 1 : -1) * pawnTable[tableIndex];
+                            }
+                            
+                            score += pieceValue;
+                        }
+                    }
+                }
+            
+                // Add mobility bonus (more moves = better position)
+                const mobility = game.moves().length;
+                score += (game.turn() === 'b' ? 1 : -1) * mobility * 0.1;
+            
+                return score;
+            }
+            
+            
+            function getPieceValue(piece) {
+                const values = {
+                    p: 100,
+                    n: 320,
+                    b: 330,
+                    r: 500,
+                    q: 900,
+                    k: 20000
+                };
+            
+                let value = values[piece.type];
+                return piece.color === "b" ? value : -value;
+            }
+            
+            
+            /* =============================
+            UI & STATUS
+            ============================= */
+            
+            function updateUI() {
+                let status = "";
+            
+                if (aiThinking) {
+                    status = '<span class="thinking">AI is thinking...</span>';
+                }
+                else if (game.in_checkmate()) {
+                    status = "Checkmate!";
+                }
+                else if (game.in_draw()) {
+                    status = "Draw!";
+                }
+                else {
+                    status = game.turn() === "w" ? "White to move" : "Black to move";
+                    if (game.in_check()) status += " (Check)";
+                }
+            
+                document.getElementById("status-bar").innerHTML = status;
+                updateHistory();
+            }
+            
+            
+            function updateHistory() {
+                const history = game.history({ verbose: true });
+                const container = document.getElementById("move-history");
+                container.innerHTML = "";
+            
+                for (let i = 0; i < history.length; i += 2) {
+                    let white = history[i]?.san || "";
+                    let black = history[i + 1]?.san || "";
+            
+                    const div = document.createElement("div");
+                    div.className = "move-entry";
+                    div.innerHTML = `${i / 2 + 1}. ${white} ${black}`;
+                    container.appendChild(div);
+                }
+            
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            
+            /* =============================
+            GAME OVER
+            ============================= */
+            
+            function checkGameOver() {
+                if (!game.game_over()) return;
+            
+                let title = "Game Over";
+                let msg = "";
+                let win = false;
+            
+                if (game.in_checkmate()) {
+                    if (game.turn() === "w") {
+                        title = "You Lost";
+                        msg = "Black wins";
+                    } else {
+                        title = "You Win!";
+                        msg = "White wins";
+                        win = true;
+                    }
+                } else {
+                    msg = "Draw";
+                }
+            
+                showEndModal(title, msg, win);
+            }
+            
+            function showEndModal(title, msg, win) {
+                document.getElementById("modal-title").textContent = title;
+                document.getElementById("modal-body").textContent = msg;
+                document.getElementById("modal-overlay").style.display = "flex";
+                
+                if (win) {
+                    confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { y: 0.6 }
+                    });
+                }
+            }
+            
+            function closeModal() {
+                document.getElementById("modal-overlay").style.display = "none";
+                resetGame();
+            }
+            
+            
+            /* =============================
+            CONTROLS
+            ============================= */
+            
+            document.getElementById("elo-slider").addEventListener("input", e => {
+                currentElo = Number(e.target.value);
+                document.getElementById("elo-value").textContent = currentElo;
+            });
+            
+            document.getElementById("start-ai").onclick = () => {
+                gameMode = "ai";
+                resetGame();
+            };
+            
+            document.getElementById("start-local").onclick = () => {
+                gameMode = "local";
+                resetGame();
+            };
+            
+            document.getElementById("reset-btn").onclick = resetGame;
+            
+            document.getElementById("undo-btn").onclick = () => {
+                game.undo();
+                if (gameMode === "ai") {
+                    game.undo();
+                }
+                board.position(game.fen());
+                updateUI();
+            };
+            
+            
+            /* =============================
+            INIT BOARD
+            ============================= */
+            
+            const config = {
+                draggable: true,
+                position: "start",
+                onDragStart,
+                onDrop,
+                onSnapEnd: () => board.position(game.fen()),
+                pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png"
+            };
+            
+            board = Chessboard("myBoard", config);
+            window.addEventListener("resize", board.resize);
+            updateUI();
+        </script>
+        
+        </body>
+        </html>
