@@ -304,6 +304,43 @@
             let gameMode = "ai";
             let currentElo = 1200;
             let aiThinking = false;
+            // Cache evaluated positions to reduce repeated work (speed-up only)
+            // Cleared each AI move to avoid stale growth.
+            let transpositionTable = new Map();
+
+            // --- PERF: constants (avoid re-allocating every leaf node) ---
+            const PIECE_BASE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+            // Piece-square table for pawns (64 entries)
+            const PAWN_TABLE = [
+                0,  0,  0,  0,  0,  0,  0,  0,
+                50, 50, 50, 50, 50, 50, 50, 50,
+                10, 10, 20, 30, 30, 20, 10, 10,
+                5,  5, 10, 25, 25, 10,  5,  5,
+                0,  0,  0, 20, 20,  0,  0,  0,
+                5, -5,-10,  0,  0,-10, -5,  5,
+                5, 10, 10,-20,-20, 10, 10,  5,
+                0,  0,  0,  0,  0,  0,  0,  0
+            ];
+
+            // --- PERF: fast SAN-based ordering (improves pruning without changing depth) ---
+            function scoreSanMove(san) {
+                // Heuristic only affects move order (alpha-beta), not evaluation rules.
+                // Higher score = searched earlier.
+                let s = 0;
+                if (san.includes("#")) s += 10000;
+                if (san.includes("+")) s += 500;
+                if (san.includes("x")) s += 300;
+                if (san.includes("=")) s += 350; // promotions
+                if (san === "O-O" || san === "O-O-O") s += 120;
+                return s;
+            }
+
+            function orderMovesForPruning(moves) {
+                return moves
+                    .map((m, i) => ({ m, s: scoreSanMove(m), i }))
+                    .sort((a, b) => (b.s - a.s) || (a.i - b.i))
+                    .map((x) => x.m);
+            }
             
             
             /* =============================
@@ -401,6 +438,8 @@
                 // Use setTimeout to prevent UI blocking
                 setTimeout(() => {
                     const { depth, randomness, moveConsideration } = getAISettings(currentElo);
+                    // Clear cache each move to keep memory bounded and results consistent
+                    transpositionTable.clear();
             
                     let move;
             
@@ -459,17 +498,18 @@
             
             // Prioritize captures and checks for better move ordering
             function sortMovesByPriority(moves) {
-                return moves.sort((a, b) => {
-                    const moveA = game.move(a);
-                    const scoreA = (moveA.captured ? 10 : 0) + (game.in_check() ? 5 : 0);
+                // IMPORTANT: Do NOT call game.move/game.undo inside Array.sort comparator.
+                // That causes many extra move/undo operations and makes high ELO much slower.
+                // Instead, score each move once, then sort by that score.
+                const scored = moves.map((m) => {
+                    const made = game.move(m);
+                    const score = (made && made.captured ? 10 : 0) + (game.in_check() ? 5 : 0);
                     game.undo();
-                    
-                    const moveB = game.move(b);
-                    const scoreB = (moveB.captured ? 10 : 0) + (game.in_check() ? 5 : 0);
-                    game.undo();
-                    
-                    return scoreB - scoreA;
+                    return { move: m, score };
                 });
+            
+                scored.sort((a, b) => b.score - a.score);
+                return scored.map((x) => x.move);
             }
             
             
@@ -478,7 +518,14 @@
                     return evaluateBoard();
                 }
             
-                const moves = game.moves();
+                // Transposition table: cache results by position+depth+side
+                const key = game.fen() + "|" + depth + "|" + (maximizingPlayer ? "1" : "0");
+                if (transpositionTable.has(key)) {
+                    return transpositionTable.get(key);
+                }
+            
+                // Order moves at every node (cheap, improves alpha-beta pruning a lot)
+                const moves = orderMovesForPruning(game.moves());
             
                 if (maximizingPlayer) {
                     let maxEval = -Infinity;
@@ -494,6 +541,7 @@
                         if (beta <= alpha) break; // Alpha-beta pruning
                     }
             
+                    transpositionTable.set(key, maxEval);
                     return maxEval;
                 }
                 else {
@@ -510,6 +558,7 @@
                         if (beta <= alpha) break; // Alpha-beta pruning
                     }
             
+                    transpositionTable.set(key, minEval);
                     return minEval;
                 }
             }
@@ -530,18 +579,6 @@
                 let score = 0;
                 const boardState = game.board();
             
-                // Piece-square tables for positional play
-                const pawnTable = [
-                    0,  0,  0,  0,  0,  0,  0,  0,
-                    50, 50, 50, 50, 50, 50, 50, 50,
-                    10, 10, 20, 30, 30, 20, 10, 10,
-                    5,  5, 10, 25, 25, 10,  5,  5,
-                    0,  0,  0, 20, 20,  0,  0,  0,
-                    5, -5,-10,  0,  0,-10, -5,  5,
-                    5, 10, 10,-20,-20, 10, 10,  5,
-                    0,  0,  0,  0,  0,  0,  0,  0
-                ];
-            
                 for (let i = 0; i < 8; i++) {
                     for (let j = 0; j < 8; j++) {
                         const piece = boardState[i][j];
@@ -552,7 +589,7 @@
                             // Add positional bonus for pawns
                             if (piece.type === 'p') {
                                 const tableIndex = piece.color === 'b' ? i * 8 + j : (7 - i) * 8 + j;
-                                pieceValue += (piece.color === 'b' ? 1 : -1) * pawnTable[tableIndex];
+                                pieceValue += (piece.color === 'b' ? 1 : -1) * PAWN_TABLE[tableIndex];
                             }
                             
                             score += pieceValue;
@@ -569,16 +606,7 @@
             
             
             function getPieceValue(piece) {
-                const values = {
-                    p: 100,
-                    n: 320,
-                    b: 330,
-                    r: 500,
-                    q: 900,
-                    k: 20000
-                };
-            
-                let value = values[piece.type];
+                let value = PIECE_BASE_VALUES[piece.type];
                 return piece.color === "b" ? value : -value;
             }
             
