@@ -1,932 +1,860 @@
 <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>♟️ CHESS DUEL ARENA PRO</title>
-            
-            <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-            <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-            <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
-            <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
-            <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-            
-            <style>
-                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-                
-                :root {
-                    --primary-green: #81b64c;
-                    --dark-green: #739a45;
-                    --light-square: #eeeed2;
-                    --dark-square: #769656;
-                    --bg-dark: #262421;
-                    --bg-sidebar: #1f1e1b;
-                    --text-light: #ffffff;
-                    --accent-gold: #ffcf40;
-                }
-
-                body {
-                    font-family: 'Poppins', sans-serif;
-                    background: var(--bg-dark);
-                    color: var(--text-light);
-                    margin: 0;
-                    display: flex;
-                    justify-content: center;
-                    min-height: 100vh;
-                    padding: 0;
-                }
-
-                .container {
-                    width: 100%;
-                    max-width: 1200px;
-                    padding: 20px;
-                    display: grid;
-                    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(260px, 320px);
-                    gap: 20px;
-                    grid-template-areas: "left board right";
-                }
-
-                /* Sidebar Styling */
-                .sidebar {
-                    background: var(--bg-sidebar);
-                    padding: 20px;
-                    border-radius: 12px;
-                    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 15px;
-                }
-
-                h1 { font-size: 1.5rem; margin-bottom: 10px; color: var(--primary-green); text-align: center; }
-                h2 { font-size: 0.9rem; text-transform: uppercase; color: #8b8987; letter-spacing: 1px; }
-
-                /* Board Container */
-                #board-container {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    grid-area: board;
-                }
-
-                #myBoard {
-                    width: 100%;
-                    max-width: 600px;
-                    border-radius: 4px;
-                    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-                }
-
-                /* Place sidebars in grid areas (desktop) */
-                .container > .sidebar:first-of-type { grid-area: left; }
-                .container > .sidebar:last-of-type { grid-area: right; }
-
-                /* UI Elements */
-                .btn {
-                    background: #3d3b38;
-                    color: white;
-                    border: none;
-                    padding: 12px;
-                    border-radius: 8px;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-
-                .btn-primary { background: var(--primary-green); }
-                .btn-primary:hover { background: var(--dark-green); transform: translateY(-2px); }
-
-                /* ELO Slider Styling */
-                .difficulty-container {
-                    background: #2b2926;
-                    padding: 15px;
-                    border-radius: 8px;
-                    margin: 10px 0;
-                }
-
-                .elo-display {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 10px;
-                }
-
-                #elo-value {
-                    font-size: 1.4rem;
-                    font-weight: 700;
-                    color: var(--accent-gold);
-                }
-
-                input[type=range] {
-                    width: 100%;
-                    cursor: pointer;
-                    accent-color: var(--primary-green);
-                }
-
-                /* History & Status */
-                #move-history {
-                    flex-grow: 1;
-                    background: #2b2926;
-                    border-radius: 8px;
-                    padding: 10px;
-                    font-size: 0.85rem;
-                    overflow-y: auto;
-                    max-height: 300px;
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 5px;
-                }
-
-                .move-entry {
-                    background: #3d3b38;
-                    padding: 4px 8px;
-                    border-radius: 4px;
-                }
-
-                #status-bar {
-                    padding: 15px;
-                    background: #1a1917;
-                    border-radius: 8px;
-                    text-align: center;
-                    font-weight: 600;
-                }
-
-                /* Thinking indicator */
-                .thinking {
-                    color: var(--accent-gold);
-                    animation: pulse 1s infinite;
-                }
-
-                @keyframes pulse {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.5; }
-                }
-
-                /* Modal Styling */
-                .modal-overlay {
-                    position: fixed;
-                    top: 0; left: 0; width: 100%; height: 100%;
-                    background: rgba(0,0,0,0.85);
-                    display: none;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 1000;
-                    backdrop-filter: blur(5px);
-                }
-
-                .modal {
-                    background: #312e2b;
-                    padding: 40px;
-                    border-radius: 16px;
-                    text-align: center;
-                    max-width: 400px;
-                    width: 90%;
-                    border: 2px solid var(--primary-green);
-                    animation: popIn 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55);
-                }
-
-                @keyframes popIn {
-                    from { transform: scale(0.5); opacity: 0; }
-                    to { transform: scale(1); opacity: 1; }
-                }
-
-                .modal h2 { font-size: 2rem; color: white; margin-bottom: 10px; }
-                .modal p { color: #baca44; margin-bottom: 25px; }
-
-                /* Chess.com style highlighting */
-                .highlight-white { background-color: #f6f669 !important; }
-                .highlight-black { background-color: #baca44 !important; }
-
-                /* =============================
-                   RESPONSIVE LAYOUT
-                   ============================= */
-
-                /* Large tablets / small laptops: board first, sidebars stacked */
-                @media (max-width: 1024px) {
-                    body { justify-content: flex-start; }
-
-                    .container {
-                        max-width: 900px;
-                        padding: 16px;
-                        grid-template-columns: 1fr;
-                        grid-template-areas:
-                            "board"
-                            "left"
-                            "right";
-                    }
-
-                    #myBoard {
-                        max-width: 560px;
-                    }
-
-                    #move-history {
-                        max-height: 260px;
-                    }
-                }
-
-                /* Phones: tighter spacing, single-column history */
-                @media (max-width: 600px) {
-                    .container { padding: 12px; gap: 12px; }
-                    .sidebar { padding: 14px; border-radius: 10px; }
-
-                    h1 { font-size: 1.25rem; }
-                    #status-bar { padding: 12px; font-size: 0.95rem; }
-
-                    #myBoard {
-                        /* keep board readable while fitting small screens */
-                        max-width: 92vw;
-                    }
-
-                    #move-history {
-                        grid-template-columns: 1fr;
-                        max-height: 220px;
-                        font-size: 0.82rem;
-                    }
-
-                    #captured-pieces { font-size: 1.25rem; }
-
-                    .btn { padding: 11px; }
-                }
-            </style>
-        </head>
-        <body>
-
-        <div class="container">
-            <div class="sidebar">
-                <h1>♟ ARENA PRO</h1>
-                
-                <div class="difficulty-container">
-                    <div class="elo-display">
-                        <h2>AI Difficulty</h2>
-                        <span id="elo-value">1200</span>
-                    </div>
-                    <input type="range" id="elo-slider" min="400" max="2800" step="100" value="1200">
-                    <div style="font-size: 0.7rem; display: flex; justify-content: space-between; margin-top: 5px; color: #666;">
-                        <span>Newbie</span>
-                        <span>Grandmaster</span>
-                    </div>
-                </div>
-
-                <button class="btn btn-primary" id="start-ai">Play vs Computer</button>
-                <button class="btn" id="start-local">Play vs Friend</button>
-                <button class="btn" style="margin-top: auto;" id="undo-btn">Undo Move</button>
-                <button class="btn" id="reset-btn">New Game</button>
-            </div>
-
-            <div id="board-container">
-                <div id="status-bar">Select a mode to start</div>
-                <div id="myBoard"></div>
-            </div>
-
-            <div class="sidebar">
-                <h2>Move History</h2>
-                <div id="move-history"></div>
-                
-                <h2>Captured</h2>
-                <div id="captured-pieces" style="display: flex; flex-wrap: wrap; gap: 5px; font-size: 1.5rem;"></div>
-            </div>
-        </div>
-
-        <div class="modal-overlay" id="modal-overlay">
-            <div class="modal">
-                <h2 id="modal-title">Checkmate!</h2>
-                <p id="modal-body">White wins the duel.</p>
-                <button class="btn btn-primary" onclick="closeModal()">Play Again</button>
-            </div>
-        </div>
-
-        <script>
-            /* =============================
-            GLOBAL STATE
-            ============================= */
-            
-            let board = null;
-            let game = new Chess();
-            let gameMode = "ai";
-            let currentElo = 1200;
-            let aiThinking = false;
-            // Cache evaluated positions to reduce repeated work (speed-up only)
-            // Cleared each AI move to avoid stale growth.
-            let transpositionTable = new Map();
-
-            // --- PERF: constants (avoid re-allocating every leaf node) ---
-            const PIECE_BASE_VALUES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
-            // Piece-square table for pawns (64 entries)
-            const PAWN_TABLE = [
-                0,  0,  0,  0,  0,  0,  0,  0,
-                50, 50, 50, 50, 50, 50, 50, 50,
-                10, 10, 20, 30, 30, 20, 10, 10,
-                5,  5, 10, 25, 25, 10,  5,  5,
-                0,  0,  0, 20, 20,  0,  0,  0,
-                5, -5,-10,  0,  0,-10, -5,  5,
-                5, 10, 10,-20,-20, 10, 10,  5,
-                0,  0,  0,  0,  0,  0,  0,  0
-            ];
-
-            // --- PERF: fast SAN-based ordering (improves pruning without changing depth) ---
-            function scoreSanMove(san) {
-                // Heuristic only affects move order (alpha-beta), not evaluation rules.
-                // Higher score = searched earlier.
-                let s = 0;
-                if (san.includes("#")) s +=  10000;
-                if (san.includes("+")) s += 500;
-                if (san.includes("x")) s += 300;
-                if (san.includes("=")) s += 350; // promotions
-                if (san === "O-O" || san === "O-O-O") s += 120;
-                return s;
-            }
-
-            function orderMovesForPruning(moves) {
-                return moves
-                    .map((m, i) => ({ m, s: scoreSanMove(m), i }))
-                    .sort((a, b) => (b.s - a.s) || (a.i - b.i))
-                    .map((x) => x.m);
-            }
-
-            /* =============================
-            STOCKFISH (ELO ENGINE)
-            ============================= */
-
-            // Uses Stockfish WASM via an inline (Blob) WebWorker so this project can be deployed
-            // as a single-file static site (e.g. Vercel). Engine is loaded from a CDN.
-            let stockfish = null;
-            let stockfishReady = false;
-            let stockfishBusy = false;
-            let stockfishResolve = null;
-            let stockfishReject = null;
-            let stockfishLastRequestId = 0;
-            let stockfishWorkerUrl = null;
-
-            // CDN engine (single-thread lite build keeps startup fast and works on Vercel)
-            const STOCKFISH_ENGINE_URL =
-                "https://cdn.jsdelivr.net/npm/stockfish@17.1.0/src/stockfish-17.1-lite-single-03e3232.js";
-
-            function clamp(n, min, max) {
-                return Math.max(min, Math.min(max, n));
-            }
-
-            function eloToStockfishSettings(elo) {
-                // Slider is 400–2800. Stockfish UCI_Elo is commonly 1320–3190.
-                // We map the full slider to Skill Level 0–20, and clamp UCI_Elo to supported range.
-                const skill = clamp(Math.round(((elo - 400) / (2800 - 400)) * 20), 0, 20);
-                const uciElo = clamp(Math.round(elo), 1320, 3190);
-
-                // Strength is capped by UCI_Elo, so we don't need long time for "quality".
-                // Keep all levels fast: 90–180ms (high ELO was 350ms before).
-                const movetimeMs = clamp(Math.round(90 + ((elo - 400) / (2800 - 400)) * 90), 90, 180);
-
-                return { skill, uciElo, movetimeMs };
-            }
-
-            function initStockfish() {
-                try {
-                    // Inline worker: keeps repo as one file. Worker loads Stockfish from CDN.
-                    const workerCode = `importScripts(${JSON.stringify(STOCKFISH_ENGINE_URL)});`;
-                    const blob = new Blob([workerCode], { type: "text/javascript" });
-                    stockfishWorkerUrl = URL.createObjectURL(blob);
-                    stockfish = new Worker(stockfishWorkerUrl);
-                } catch (e) {
-                    console.warn("Stockfish worker failed to start:", e);
-                    stockfish = null;
-                    stockfishReady = false;
-                    return;
-                }
-
-                stockfish.onmessage = (event) => {
-                    const line = String(event.data || "").trim();
-                    if (!line) return;
-
-                    if (line === "uciok") {
-                        stockfish.postMessage("isready");
-                        return;
-                    }
-                    if (line === "readyok") {
-                        stockfishReady = true;
-                        return;
-                    }
-
-                    if (line.startsWith("bestmove ")) {
-                        const parts = line.split(/\s+/);
-                        const best = parts[1];
-                        const resolve = stockfishResolve;
-                        const reject = stockfishReject;
-                        stockfishResolve = null;
-                        stockfishReject = null;
-                        stockfishBusy = false;
-
-                        if (!resolve) return;
-                        if (!best || best === "(none)") return reject?.(new Error("No bestmove"));
-                        resolve(best);
-                    }
-                };
-
-                stockfish.onerror = (err) => {
-                    console.warn("Stockfish worker error:", err);
-                    stockfishReady = false;
-                    stockfishBusy = false;
-                    stockfishResolve = null;
-                    stockfishReject = null;
-                };
-
-                // Boot sequence
-                stockfish.postMessage("uci");
-            }
-
-            function requestStockfishBestMove(fen, elo) {
-                return new Promise((resolve, reject) => {
-                    if (!stockfish || !stockfishReady) {
-                        reject(new Error("Stockfish not ready"));
-                        return;
-                    }
-                    if (stockfishBusy) {
-                        reject(new Error("Stockfish is busy"));
-                        return;
-                    }
-
-                    stockfishBusy = true;
-                    stockfishResolve = resolve;
-                    stockfishReject = reject;
-                    stockfishLastRequestId++;
-
-                    const { skill, uciElo, movetimeMs } = eloToStockfishSettings(elo);
-
-                    // Strength controls (speed-only tuning is via movetime, strength via options)
-                    stockfish.postMessage("ucinewgame");
-                    stockfish.postMessage("setoption name Threads value 1");
-                    stockfish.postMessage("setoption name Hash value 16");
-                    stockfish.postMessage(`setoption name Skill Level value ${skill}`);
-                    stockfish.postMessage("setoption name UCI_LimitStrength value true");
-                    stockfish.postMessage(`setoption name UCI_Elo value ${uciElo}`);
-
-                    stockfish.postMessage("position fen " + fen);
-                    stockfish.postMessage("go movetime " + movetimeMs);
-                });
-            }
-
-            function applyUciMoveToGame(uci) {
-                // uci: e2e4 or e7e8q
-                if (!uci || uci.length < 4) return false;
-                const from = uci.slice(0, 2);
-                const to = uci.slice(2, 4);
-                const promotion = uci.length >= 5 ? uci[4] : undefined;
-                const moveObj = promotion ? { from, to, promotion } : { from, to };
-                const m = game.move(moveObj);
-                return m !== null;
-            }
-
-            // Start Stockfish as soon as the page loads
-            initStockfish();
-
-            // Cleanup Blob URL on page unload
-            window.addEventListener("beforeunload", () => {
-                try {
-                    if (stockfishWorkerUrl) URL.revokeObjectURL(stockfishWorkerUrl);
-                } catch (_) {}
-            });
-            
-            
-            /* =============================
-            ELO → AI SETTINGS (OPTIMIZED)
-            ============================= */
-            
-            function getAISettings(elo) {
-                let depth;
-                let randomness;
-                let moveConsideration; // How many top moves to consider
-            
-                if (elo < 800) {
-                    depth = 1;
-                    randomness = 0.7;
-                    moveConsideration = 0.3; // 30% of moves
-                }
-                else if (elo < 1200) {
-                    depth = 2;
-                    randomness = 0.5;
-                    moveConsideration = 0.4;
-                }
-                else if (elo < 1600) {
-                    depth = 2;
-                    randomness = 0.3;
-                    moveConsideration = 0.6;
-                }
-                else if (elo < 2000) {
-                    depth = 3;
-                    randomness = 0.15;
-                    moveConsideration = 0.7;
-                }
-                else if (elo < 2400) {
-                    depth = 3;
-                    randomness = 0.08;
-                    moveConsideration = 0.85;
-                }
-                else {
-                    depth = 3; // Keep at 3 for performance
-                    randomness = 0.03;
-                    moveConsideration = 1.0; // Consider all moves
-                }
-            
-                return { depth, randomness, moveConsideration };
-            }
-            
-            
-            /* =============================
-            BOARD CONTROL
-            ============================= */
-            
-            function onDragStart(source, piece) {
-                if (game.game_over()) return false;
-                if (gameMode === "ai" && piece.startsWith("b")) return false;
-                if (aiThinking) return false;
-            }
-            
-            
-            function onDrop(source, target) {
-                const move = game.move({
-                    from: source,
-                    to: target,
-                    promotion: "q"
-                });
-            
-                if (move === null) return "snapback";
-            
-                updateUI();
-            
-                if (gameMode === "ai" && !game.game_over()) {
-                    setTimeout(makeAIMove, 100);
-                }
-            
-                checkGameOver();
-            }
-            
-            
-            function resetGame() {
-                aiThinking = false;
-                game.reset();
-                board.position("start");
-                updateUI();
-            }
-            
-            
-            /* =============================
-            AI MAIN LOGIC (OPTIMIZED)
-            ============================= */
-            
-            function makeAIMove() {
-                if (game.game_over()) return;
-            
-                aiThinking = true;
-                updateUI(); // Show "thinking" status
-            
-                // Use setTimeout to prevent UI blocking
-                setTimeout(() => {
-                    const { depth, randomness, moveConsideration } = getAISettings(currentElo);
-                    // Clear cache each move to keep memory bounded and results consistent
-                    transpositionTable.clear();
-            
-                    // Prefer Stockfish for ELO-based play (much faster & stronger than JS minimax)
-                    if (stockfish && stockfishReady) {
-                        const fen = game.fen();
-                        requestStockfishBestMove(fen, currentElo)
-                            .then((uci) => {
-                                // Keep some human-like mistakes using your randomness setting
-                                if (Math.random() < randomness) {
-                                    const moves = game.moves();
-                                    const randomMove = moves[Math.floor(Math.random() * moves.length)];
-                                    game.move(randomMove);
-                                } else {
-                                    applyUciMoveToGame(uci);
-                                }
-                                board.position(game.fen());
-                                aiThinking = false;
-                                updateUI();
-                                checkGameOver();
-                            })
-                            .catch(() => {
-                                // Fallback to existing JS engine if Stockfish fails
-                                let move;
-                                if (Math.random() < randomness) {
-                                    const moves = game.moves();
-                                    move = moves[Math.floor(Math.random() * moves.length)];
-                                } else {
-                                    move = getBestMove(depth, moveConsideration);
-                                }
-                                game.move(move);
-                                board.position(game.fen());
-                                aiThinking = false;
-                                updateUI();
-                                checkGameOver();
-                            });
-                        return;
-                    }
-
-                    // Fallback: existing JS minimax engine
-                    let move;
-                    if (Math.random() < randomness) {
-                        const moves = game.moves();
-                        move = moves[Math.floor(Math.random() * moves.length)];
-                    } else {
-                        move = getBestMove(depth, moveConsideration);
-                    }
-
-                    game.move(move);
-                    board.position(game.fen());
-                    aiThinking = false;
-                    updateUI();
-                    checkGameOver();
-                }, 50);
-            }
-            
-            
-            /* =============================
-            OPTIMIZED MINIMAX ENGINE
-            ============================= */
-            
-            function getBestMove(depth, moveConsideration) {
-                let bestMove = null;
-                let bestValue = -Infinity;
-            
-                const allMoves = game.moves();
-                
-                // Pre-sort moves by basic heuristics for better pruning
-                const sortedMoves = sortMovesByPriority(allMoves);
-                
-                // Only consider a percentage of moves based on ELO
-                const movesToConsider = Math.max(
-                    3, // Always consider at least 3 moves
-                    Math.ceil(sortedMoves.length * moveConsideration)
-                );
-                
-                const moves = sortedMoves.slice(0, movesToConsider);
-            
-                for (let move of moves) {
-                    game.move(move);
-                    let value = minimax(depth - 1, -Infinity, Infinity, false);
-                    game.undo();
-            
-                    if (value > bestValue) {
-                        bestValue = value;
-                        bestMove = move;
-                    }
-                }
-            
-                return bestMove;
-            }
-            
-            
-            // Prioritize captures and checks for better move ordering
-            function sortMovesByPriority(moves) {
-                // IMPORTANT: Do NOT call game.move/game.undo inside Array.sort comparator.
-                // That causes many extra move/undo operations and makes high ELO much slower.
-                // Instead, score each move once, then sort by that score.
-                const scored = moves.map((m) => {
-                    const made = game.move(m);
-                    const score = (made && made.captured ? 10 : 0) + (game.in_check() ? 5 : 0);
-                    game.undo();
-                    return { move: m, score };
-                });
-            
-                scored.sort((a, b) => b.score - a.score);
-                return scored.map((x) => x.move);
-            }
-            
-            
-            function minimax(depth, alpha, beta, maximizingPlayer) {
-                if (depth === 0 || game.game_over()) {
-                    return evaluateBoard();
-                }
-            
-                // Transposition table: cache results by position+depth+side
-                const key = game.fen() + "|" + depth + "|" + (maximizingPlayer ? "1" : "0");
-                if (transpositionTable.has(key)) {
-                    return transpositionTable.get(key);
-                }
-            
-                // Order moves at every node (cheap, improves alpha-beta pruning a lot)
-                const moves = orderMovesForPruning(game.moves());
-            
-                if (maximizingPlayer) {
-                    let maxEval = -Infinity;
-            
-                    for (let move of moves) {
-                        game.move(move);
-                        let eval = minimax(depth - 1, alpha, beta, false);
-                        game.undo();
-            
-                        maxEval = Math.max(maxEval, eval);
-                        alpha = Math.max(alpha, eval);
-            
-                        if (beta <= alpha) break; // Alpha-beta pruning
-                    }
-            
-                    transpositionTable.set(key, maxEval);
-                    return maxEval;
-                }
-                else {
-                    let minEval = Infinity;
-            
-                    for (let move of moves) {
-                        game.move(move);
-                        let eval = minimax(depth - 1, alpha, beta, true);
-                        game.undo();
-            
-                        minEval = Math.min(minEval, eval);
-                        beta = Math.min(beta, eval);
-            
-                        if (beta <= alpha) break; // Alpha-beta pruning
-                    }
-            
-                    transpositionTable.set(key, minEval);
-                    return minEval;
-                }
-            }
-            
-            
-            /* =============================
-            ENHANCED BOARD EVALUATION
-            ============================= */
-            
-            function evaluateBoard() {
-                if (game.in_checkmate()) {
-                    return game.turn() === 'b' ? -100000 : 100000;
-                }
-                if (game.in_draw() || game.in_stalemate() || game.in_threefold_repetition()) {
-                    return 0;
-                }
-            
-                let score = 0;
-                const boardState = game.board();
-            
-                for (let i = 0; i < 8; i++) {
-                    for (let j = 0; j < 8; j++) {
-                        const piece = boardState[i][j];
-            
-                        if (piece !== null) {
-                            let pieceValue = getPieceValue(piece);
-                            
-                            // Add positional bonus for pawns
-                            if (piece.type === 'p') {
-                                const tableIndex = piece.color === 'b' ? i * 8 + j : (7 - i) * 8 + j;
-                                pieceValue += (piece.color === 'b' ? 1 : -1) * PAWN_TABLE[tableIndex];
-                            }
-                            
-                            score += pieceValue;
-                        }
-                    }
-                }
-            
-                // Add mobility bonus (more moves = better position)
-                const mobility = game.moves().length;
-                score += (game.turn() === 'b' ? 1 : -1) * mobility * 0.1;
-            
-                return score;
-            }
-            
-            
-            function getPieceValue(piece) {
-                let value = PIECE_BASE_VALUES[piece.type];
-                return piece.color === "b" ? value : -value;
-            }
-            
-            
-            /* =============================
-            UI & STATUS
-            ============================= */
-            
-            function updateUI() {
-                let status = "";
-            
-                if (aiThinking) {
-                    status = '<span class="thinking">AI is thinking...</span>';
-                }
-                else if (game.in_checkmate()) {
-                    status = "Checkmate!";
-                }
-                else if (game.in_draw()) {
-                    status = "Draw!";
-                }
-                else {
-                    status = game.turn() === "w" ? "White to move" : "Black to move";
-                    if (game.in_check()) status += " (Check)";
-                }
-            
-                document.getElementById("status-bar").innerHTML = status;
-                updateHistory();
-            }
-            
-            
-            function updateHistory() {
-                const history = game.history({ verbose: true });
-                const container = document.getElementById("move-history");
-                container.innerHTML = "";
-            
-                for (let i = 0; i < history.length; i += 2) {
-                    let white = history[i]?.san || "";
-                    let black = history[i + 1]?.san || "";
-            
-                    const div = document.createElement("div");
-                    div.className = "move-entry";
-                    div.innerHTML = `${i / 2 + 1}. ${white} ${black}`;
-                    container.appendChild(div);
-                }
-            
-                container.scrollTop = container.scrollHeight;
-            }
-            
-            
-            /* =============================
-            GAME OVER
-            ============================= */
-            
-            function checkGameOver() {
-                if (!game.game_over()) return;
-            
-                let title = "Game Over";
-                let msg = "";
-                let win = false;
-            
-                if (game.in_checkmate()) {
-                    if (game.turn() === "w") {
-                        title = "You Lost";
-                        msg = "Black wins";
-                    } else {
-                        title = "You Win!";
-                        msg = "White wins";
-                        win = true;
-                    }
-                } else {
-                    msg = "Draw";
-                }
-            
-                showEndModal(title, msg, win);
-            }
-            
-            function showEndModal(title, msg, win) {
-                document.getElementById("modal-title").textContent = title;
-                document.getElementById("modal-body").textContent = msg;
-                document.getElementById("modal-overlay").style.display = "flex";
-                
-                if (win) {
-                    confetti({
-                        particleCount: 100,
-                        spread: 70,
-                        origin: { y: 0.6 }
-                    });
-                }
-            }
-            
-            function closeModal() {
-                document.getElementById("modal-overlay").style.display = "none";
-                resetGame();
-            }
-            
-            
-            /* =============================
-            CONTROLS
-            ============================= */
-            
-            document.getElementById("elo-slider").addEventListener("input", e => {
-                currentElo = Number(e.target.value);
-                document.getElementById("elo-value").textContent = currentElo;
-            });
-            
-            document.getElementById("start-ai").onclick = () => {
-                gameMode = "ai";
-                resetGame();
-            };
-            
-            document.getElementById("start-local").onclick = () => {
-                gameMode = "local";
-                resetGame();
-            };
-            
-            document.getElementById("reset-btn").onclick = resetGame;
-            
-            document.getElementById("undo-btn").onclick = () => {
-                game.undo();
-                if (gameMode === "ai") {
-                    game.undo();
-                }
-                board.position(game.fen());
-                updateUI();
-            };
-            
-            
-            /* =============================
-            INIT BOARD
-            ============================= */
-            
-            const config = {
-                draggable: true,
-                position: "start",
-                onDragStart,
-                onDrop,
-                onSnapEnd: () => board.position(game.fen()),
-                pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png"
-            };
-            
-            board = Chessboard("myBoard", config);
-            window.addEventListener("resize", board.resize);
-            updateUI();
-        </script>
-        
-        </body>
-        </html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Chess Arena Pro+</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23121212'/><text x='16' y='22' font-size='20' text-anchor='middle' fill='%237cb342'>♔</text></svg>">
+
+<!-- LIBS -->
+<link rel="stylesheet"
+href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+<!-- UI -->
+<style>
+
+:root{
+ --bg:#121212;
+ --panel:#1c1c1c;
+ --accent:#7cb342;
+ --text:#fff;
+ --muted:#aaa;
+}
+
+body{
+ margin:0;
+ background:var(--bg);
+ color:var(--text);
+ font-family:Segoe UI,Arial;
+}
+
+.app{
+ display:grid;
+ grid-template-columns:260px 1fr 300px;
+ min-height:100vh;
+ gap:15px;
+ padding:15px;
+}
+
+
+/* LEFT PANEL */
+
+.sidebar{
+ background:var(--panel);
+ border-radius:12px;
+ padding:15px;
+ display:flex;
+ flex-direction:column;
+ gap:10px;
+}
+
+.logo{
+ font-size:22px;
+ font-weight:700;
+ text-align:center;
+ color:var(--accent);
+}
+
+.btn{
+ background:#2b2b2b;
+ border:none;
+ color:white;
+ padding:10px;
+ border-radius:8px;
+ cursor:pointer;
+ font-weight:600;
+ transition:.2s;
+}
+
+.btn:hover{
+ background:var(--accent);
+ color:black;
+}
+
+.btn.primary{
+ background:var(--accent);
+ color:black;
+}
+
+
+/* CENTER */
+
+.center{
+ display:flex;
+ flex-direction:column;
+ align-items:center;
+ gap:10px;
+}
+
+#board{
+ width:480px;
+ max-width:90vw;
+}
+
+.status{
+ background:var(--panel);
+ padding:10px;
+ border-radius:8px;
+ width:100%;
+ text-align:center;
+}
+
+
+/* RIGHT */
+
+.panel{
+ background:var(--panel);
+ border-radius:12px;
+ padding:12px;
+ display:flex;
+ flex-direction:column;
+}
+
+.panel h3{
+ margin:5px 0;
+ font-size:14px;
+ color:var(--muted);
+ text-transform:uppercase;
+}
+
+#moves{
+ flex:1;
+ overflow:auto;
+ font-size:14px;
+}
+
+.move{
+ padding:4px;
+ border-bottom:1px solid #333;
+}
+
+.review{
+ flex:1;
+ overflow:auto;
+ font-size:13px;
+ color:#ffd54f;
+}
+
+
+/* MULTI */
+
+.multiBox{
+ background:#222;
+ padding:8px;
+ border-radius:6px;
+ font-size:13px;
+}
+
+input{
+ width:100%;
+ padding:6px;
+ border-radius:6px;
+ border:none;
+ background:#333;
+ color:white;
+}
+
+.ratingBox{
+ margin-top:8px;
+ padding:10px;
+ background:#252525;
+ border-radius:8px;
+}
+.ratingLabel{
+ display:block;
+ font-size:12px;
+ color:var(--muted);
+ margin-bottom:6px;
+}
+.ratingRow{
+ display:flex;
+ align-items:center;
+ gap:10px;
+}
+.eloSlider{
+ flex:1;
+ min-width:0;
+ height:8px;
+ -webkit-appearance:none;
+ appearance:none;
+ background:#333;
+ border-radius:4px;
+}
+.eloSlider::-webkit-slider-thumb{
+ -webkit-appearance:none;
+ width:18px;
+ height:18px;
+ border-radius:50%;
+ background:var(--accent);
+ cursor:grab;
+}
+.eloSlider::-moz-range-thumb{
+ width:18px;
+ height:18px;
+ border-radius:50%;
+ background:var(--accent);
+ cursor:grab;
+ border:none;
+}
+.rating{
+ font-weight:700;
+ color:var(--accent);
+ min-width:44px;
+ text-align:right;
+}
+.ratingHint{
+ font-size:11px;
+ color:#666;
+ margin-top:4px;
+}
+.engineBox{
+ margin-top:8px;
+ padding:8px;
+ background:#252525;
+ border-radius:8px;
+ font-size:12px;
+}
+.engineStatus{ color:var(--muted); }
+.engineStatus.ready{ color:var(--accent); }
+.engineStatus.fail{ color:#f44336; }
+.btnSmall{ padding:6px 10px; font-size:12px; margin-top:6px; }
+
+
+@media(max-width:900px){
+ .app{
+  grid-template-columns:1fr;
+ }
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<!-- LEFT -->
+
+<div class="sidebar">
+
+<div class="logo">♟ Chess Arena Pro+</div>
+
+<button class="btn primary" id="aiBtn">Play vs AI</button>
+<button class="btn" id="localBtn">Local Multiplayer</button>
+
+<button class="btn" id="analyzeBtn">Analyze Game</button>
+<button class="btn" id="newBtn">New Game</button>
+
+<button class="btn" id="saveBtn">Save</button>
+<button class="btn" id="loadBtn">Load</button>
+
+
+<div class="multiBox">
+
+<b>Online Multiplayer</b><br><br>
+
+Your ID:
+<div id="myId">...</div><br>
+
+<input id="peerId" placeholder="Opponent ID">
+
+<button class="btn" id="connectBtn">Connect</button>
+
+</div>
+
+
+<div class="ratingBox">
+ <label class="ratingLabel">AI strength (ELO)</label>
+ <div class="ratingRow">
+  <input type="range" id="eloSlider" min="400" max="2800" step="100" value="1200" class="eloSlider">
+  <span id="rating" class="rating">1200</span>
+ </div>
+ <div class="ratingHint">Drag to set difficulty (400–2800)</div>
+</div>
+
+<div class="engineBox">
+ <span id="engineStatus" class="engineStatus">Engine: loading…</span>
+ <button type="button" class="btn btnSmall" id="engineRetryBtn" style="display:none">Reload engine</button>
+</div>
+
+</div>
+
+
+<!-- CENTER -->
+
+<div class="center">
+
+<div class="status" id="status">
+Welcome
+</div>
+
+<div id="board"></div>
+
+</div>
+
+
+<!-- RIGHT -->  
+
+<div class="panel">
+
+<h3>Moves</h3>
+<div id="moves"></div>
+
+<h3>Review</h3>
+<div class="review" id="review"></div>
+
+</div>
+
+</div>
+
+
+
+<script>
+/* ======================
+   GAME
+====================== */
+
+let game = new Chess();
+let board;
+
+let mode="ai"; // ai, local, online
+
+let playerColor="w";
+
+
+/* ======================
+   RATING (draggable ELO = AI strength)
+====================== */
+
+let elo = Math.min(2800, Math.max(400, Number(localStorage.getItem("elo")) || 1200));
+
+const eloSlider = document.getElementById("eloSlider");
+const ratingEl = document.getElementById("rating");
+
+function setEloDisplay(v) {
+ elo = Math.min(2800, Math.max(400, Number(v)));
+ eloSlider.value = elo;
+ ratingEl.innerText = elo;
+ localStorage.setItem("elo", String(elo));
+}
+
+eloSlider.value = elo;
+ratingEl.innerText = elo;
+eloSlider.addEventListener("input", () => setEloDisplay(eloSlider.value));
+
+
+/* ======================
+   STOCKFISH - FIXED VERSION
+====================== */
+
+let sf, ready = false, busy = false, resolveSF;
+
+function sfSend(cmd) {
+ if (!sf) return;
+ // Send as plain string - standard UCI protocol
+ sf.postMessage(cmd);
+}
+
+function onSFMessage(e) {
+ const line = (typeof e.data === "string" ? e.data : String(e.data || "")).trim();
+ if (!line) return;
+ 
+ console.log("SF:", line); // Debug logging
+ 
+ if (line === "uciok") {
+  sfSend("isready");
+  return;
+ }
+ if (line === "readyok") {
+  ready = true;
+  return;
+ }
+ if (line.startsWith("bestmove")) {
+  const parts = line.split(/\s+/);
+  const move = parts[1] || null;
+  if (typeof resolveSF === "function") resolveSF(move);
+  busy = false;
+ }
+}
+
+function setEngineStatus(cls, text) {
+ const el = document.getElementById("engineStatus");
+ const retry = document.getElementById("engineRetryBtn");
+ if (el) {
+  el.className = "engineStatus " + (cls || "");
+  el.textContent = text;
+ }
+ if (retry) {
+  retry.style.display = (cls === "fail") ? "inline-block" : "none";
+ }
+}
+
+let sfInitPromise = null;
+
+function initSF() {
+ ready = false;
+ busy = false;
+ resolveSF = null;
+ 
+ try {
+  if (sf) sf.terminate();
+ } catch {}
+ 
+ // Use stockfish.js (non-wasm version) for better compatibility
+ const url = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
+ const code = `importScripts("${url}")`;
+ const blob = new Blob([code]);
+ const blobUrl = URL.createObjectURL(blob);
+ 
+ sf = new Worker(blobUrl);
+ 
+ sf.onerror = (err) => {
+  console.error("Stockfish worker error:", err);
+  setEngineStatus("fail", "Engine: failed");
+  ready = false;
+ };
+ 
+ sf.onmessage = onSFMessage;
+ 
+ // Initialize UCI
+ sfSend("uci");
+}
+
+async function ensureSF() {
+ if (ready) return;
+ if (sfInitPromise) return sfInitPromise;
+ 
+ setEngineStatus("", "Engine: loading…");
+ 
+ sfInitPromise = new Promise((resolve, reject) => {
+  initSF();
+  
+  const timeout = setTimeout(() => {
+   if (!ready) {
+    setEngineStatus("fail", "Engine: timeout");
+    reject(new Error("Engine timeout"));
+   }
+  }, 15000);
+  
+  const checkReady = setInterval(() => {
+   if (ready) {
+    clearInterval(checkReady);
+    clearTimeout(timeout);
+    setEngineStatus("ready", "Engine: ready");
+    resolve();
+   }
+  }, 100);
+ });
+ 
+ return sfInitPromise;
+}
+
+// Start loading immediately
+ensureSF().catch(() => {});
+
+function clampEloForSF(e) {
+ return Math.min(3190, Math.max(1320, Math.round(e)));
+}
+
+async function sfMove(fen) {
+ await ensureSF();
+ 
+ return new Promise(res => {
+  if (busy) return res(null);
+  busy = true;
+  resolveSF = (uci) => {
+   busy = false;
+   res(uci);
+  };
+  
+  const uciElo = clampEloForSF(elo);
+  const movetimeMs = Math.min(200, Math.max(80, 80 + (elo - 400) / 12));
+  
+  sfSend("ucinewgame");
+  sfSend("setoption name Threads value 1");
+  sfSend("setoption name UCI_LimitStrength value true");
+  sfSend("setoption name UCI_Elo value " + uciElo);
+  sfSend("position fen " + fen);
+  sfSend("go movetime " + Math.round(movetimeMs));
+  
+  // Timeout fallback
+  setTimeout(() => {
+   if (busy) {
+    busy = false;
+    res(null);
+   }
+  }, movetimeMs + 5000);
+ });
+}
+
+
+/* ======================
+   PEER (ONLINE)
+====================== */
+
+let peer=null, conn=null;
+
+try {
+ peer = new Peer();
+ peer.on("open", id => { document.getElementById("myId").innerText = id; });
+ peer.on("connection", c => {
+  conn = c;
+  setupConn();
+  mode = "online";
+  playerColor = "b";
+  reset();
+ });
+} catch (e) {
+ console.warn("Peer failed", e);
+ document.getElementById("myId").innerText = "(offline)";
+}
+
+
+function setupConn(){
+
+ conn.on("data",d=>{
+
+  if(d.type==="move"){
+
+   game.move(d.move);
+
+   board.position(game.fen());
+
+   update();
+   checkEnd();
+  }
+
+  if(d.type==="new"){
+   reset();
+  }
+ });
+}
+
+
+/* ======================
+   BOARD
+====================== */
+
+function onDragStart(s,p){
+
+ if(game.game_over()) return false;
+
+ if(mode==="ai" && p[0]==="b") return false;
+
+ if(mode==="online" && p[0]!==playerColor)
+  return false;
+}
+
+
+function onDrop(s,t){
+
+ let m=game.move({
+  from:s,
+  to:t,
+  promotion:"q"
+ });
+
+ if(!m) return "snapback";
+
+
+ if(mode==="online"){
+  conn.send({type:"move",move:m});
+ }
+
+
+ update();
+ updateMoves();
+
+ if(mode==="ai" && !game.game_over()){
+  setTimeout(aiMove,200);
+ }
+
+ checkEnd();
+}
+
+
+board=Chessboard("board",{
+ draggable:true,
+ position:"start",
+ onDragStart,
+ onDrop,
+ onSnapEnd:()=>board.position(game.fen()),
+ pieceTheme:
+ "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png"
+});
+
+
+/* ======================
+   AI
+====================== */
+
+async function aiMove(){
+ if (game.game_over()) return;
+ document.getElementById("status").innerText = "AI thinking…";
+ const fen = game.fen();
+ let uci = null;
+ try {
+  uci = await sfMove(fen);
+ } catch (e) {
+  console.warn("AI move failed", e);
+  const msg = (e && e.message) ? e.message : String(e);
+  if (msg.includes("timeout")) {
+   document.getElementById("status").innerText = "Engine still loading… please wait and try again";
+  } else {
+   document.getElementById("status").innerText =
+    "Engine failed to load. Please reload the page.";
+  }
+  return;
+ }
+
+ if (!uci || uci === "(none)" || uci.length < 4) return;
+
+ const from = uci.slice(0, 2);
+ const to = uci.slice(2, 4);
+ const moveObj = { from, to };
+ if (uci.length >= 5) moveObj.promotion = uci[4].toLowerCase();
+
+ const m = game.move(moveObj);
+ if (!m) return;
+
+ board.position(game.fen());
+ update();
+ updateMoves();
+ checkEnd();
+}
+
+
+/* ======================
+   UI
+====================== */
+
+function update(){
+
+ let s="";
+
+ if(game.in_checkmate())
+  s="Checkmate";
+
+ else if(game.in_draw())
+  s="Draw";
+
+ else
+  s=(game.turn()=="w"?"White":"Black")+" to move";
+
+ document.getElementById("status").innerText=s;
+}
+
+
+function updateMoves(){
+
+ let h=game.history({verbose:true});
+
+ let box=document.getElementById("moves");
+
+ box.innerHTML="";
+
+ for(let i=0;i<h.length;i+=2){
+
+  let d=document.createElement("div");
+
+  d.className="move";
+
+  d.innerText=
+   (i/2+1)+". "+
+   (h[i]?.san||"")+" "+
+   (h[i+1]?.san||"");
+
+  box.appendChild(d);
+ }
+
+ box.scrollTop=99999;
+}
+
+
+/* ======================
+   ANALYSIS
+====================== */
+
+async function analyze(){
+
+ let hist=game.history({verbose:true});
+
+ if(!hist.length) return alert("No game");
+
+ let temp=new Chess();
+
+ let review=document.getElementById("review");
+
+ review.innerHTML="Analyzing...<br>";
+
+
+ for(let i=0;i<hist.length;i++){
+
+  let prev=temp.fen();
+
+  temp.move(hist[i]);
+
+  let best=null;
+  try{
+   best=await sfMove(prev);
+  }catch(e){
+   alert("Engine not available for analysis");
+   break;
+  }
+
+  if(!best) continue;
+
+  let test=new Chess(prev);
+
+  const moveObj = { from: best.slice(0,2), to: best.slice(2,4) };
+  if (best && best.length >= 5) moveObj.promotion = best[4].toLowerCase();
+  test.move(moveObj);
+
+
+  if(test.fen()!=temp.fen()){
+
+   review.innerHTML+=
+    "Move "+(i+1)+
+    " ("+hist[i].san+") mistake<br>";
+  }
+ }
+
+ review.innerHTML+="Done ✔";
+}
+
+
+/* ======================
+   SAVE / LOAD
+====================== */
+
+function saveGame(){
+
+ localStorage.setItem("pgn",game.pgn());
+ alert("Saved");
+}
+
+function loadGame(){
+
+ let p=localStorage.getItem("pgn");
+
+ if(!p) return alert("No save");
+
+ game.load_pgn(p);
+
+ board.position(game.fen());
+
+ update();
+ updateMoves();
+}
+
+
+/* ======================
+   RATING
+====================== */
+
+function updateElo(res){
+ const K=24;
+ const opp=1500;
+ const exp=1/(1+Math.pow(10,(opp-elo)/400));
+ const s= res==="win"?1 : res==="draw"?0.5 : 0;
+ elo=Math.round(elo+K*(s-exp));
+ elo=Math.min(2800,Math.max(400,elo));
+ localStorage.setItem("elo",String(elo));
+ eloSlider.value=elo;
+ ratingEl.innerText=elo;
+}
+
+
+/* ======================
+   END
+====================== */
+
+function checkEnd(){
+
+ if(!game.game_over()) return;
+
+ let r="draw";
+
+ if(game.in_checkmate()){
+  if(game.turn()=="w") r="loss";
+  else r="win";
+ }
+
+ if(mode==="ai") updateElo(r);
+
+ alert("Game Over: "+r);
+}
+
+
+/* ======================
+   CONTROLS
+====================== */
+
+function reset(){
+
+ game.reset();
+
+ board.position("start");
+
+ update();
+ updateMoves();
+
+ document.getElementById("review").innerHTML="";
+
+ if(mode==="online" && conn){
+  conn.send({type:"new"});
+ }
+}
+
+
+document.getElementById("aiBtn").onclick=()=>{
+ mode="ai";
+ playerColor="w";
+ reset();
+};
+
+document.getElementById("localBtn").onclick=()=>{
+ mode="local";
+ reset();
+};
+
+document.getElementById("newBtn").onclick=reset;
+
+document.getElementById("saveBtn").onclick=saveGame;
+
+document.getElementById("loadBtn").onclick=loadGame;
+
+document.getElementById("analyzeBtn").onclick=analyze;
+
+
+document.getElementById("connectBtn").onclick=()=>{
+ const id=document.getElementById("peerId").value.trim();
+ if(!id) return alert("Enter opponent ID");
+ if(!peer) return alert("Online multiplayer not available");
+ conn=peer.connect(id);
+ conn.on("open",()=>{
+  setupConn();
+  mode="online";
+  playerColor="w";
+  reset();
+ });
+};
+
+document.getElementById("engineRetryBtn").onclick=()=>{
+ sfInitPromise=null; ready=false;
+ try{ if(sf) sf.terminate(); }catch{}
+ sf=null;
+ setEngineStatus("","Engine: loading…");
+ ensureSF().catch(()=>{});
+};
+
+update();
+
+</script>
+</body>
+</html> 
