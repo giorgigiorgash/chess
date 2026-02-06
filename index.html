@@ -353,6 +353,8 @@ eloSlider.addEventListener("input", () => setEloDisplay(eloSlider.value));
 ====================== */
 
 let sf, ready = false, busy = false, resolveSF;
+let sfOptions = new Set();
+let sfConfiguredFor = null; // string key of last config
 
 function sfSend(cmd) {
  if (!sf) return;
@@ -365,6 +367,13 @@ function onSFMessage(e) {
  if (!line) return;
  
  console.log("SF:", line); // Debug logging
+
+ // capture supported options so we can configure strength correctly
+ if (line.startsWith("option name ")) {
+  // "option name Skill Level type spin default 20 min 0 max 20"
+  const name = line.slice("option name ".length).split(" type ")[0].trim();
+  if (name) sfOptions.add(name);
+ }
  
  if (line === "uciok") {
   sfSend("isready");
@@ -400,6 +409,8 @@ function initSF() {
  ready = false;
  busy = false;
  resolveSF = null;
+ sfOptions = new Set();
+ sfConfiguredFor = null;
  
  try {
   if (sf) sf.terminate();
@@ -461,6 +472,33 @@ function clampEloForSF(e) {
  return Math.min(3190, Math.max(1320, Math.round(e)));
 }
 
+function mapEloToSkill(e){
+ // 400..2800 -> 0..20
+ const t = (Math.min(2800, Math.max(400, e)) - 400) / (2800 - 400);
+ return Math.min(20, Math.max(0, Math.round(t * 20)));
+}
+
+function configureSF(){
+ // configure only when needed
+ const key = JSON.stringify({ elo, opts: Array.from(sfOptions).sort() });
+ if (sfConfiguredFor === key) return;
+ sfConfiguredFor = key;
+
+ // reduce overhead if supported
+ if (sfOptions.has("Move Overhead")) sfSend("setoption name Move Overhead value 0");
+ if (sfOptions.has("Minimum Thinking Time")) sfSend("setoption name Minimum Thinking Time value 0");
+
+ // strength mapping
+ if (sfOptions.has("UCI_LimitStrength") && sfOptions.has("UCI_Elo")) {
+  const uciElo = clampEloForSF(elo);
+  sfSend("setoption name UCI_LimitStrength value true");
+  sfSend("setoption name UCI_Elo value " + uciElo);
+ } else if (sfOptions.has("Skill Level")) {
+  const skill = mapEloToSkill(elo);
+  sfSend("setoption name Skill Level value " + skill);
+ }
+}
+
 async function sfMove(fen) {
  await ensureSF();
  
@@ -472,23 +510,21 @@ async function sfMove(fen) {
    res(uci);
   };
   
-  const uciElo = clampEloForSF(elo);
   const movetimeMs = Math.min(200, Math.max(80, 80 + (elo - 400) / 12));
   
-  sfSend("ucinewgame");
-  sfSend("setoption name Threads value 1");
-  sfSend("setoption name UCI_LimitStrength value true");
-  sfSend("setoption name UCI_Elo value " + uciElo);
+  configureSF();
   sfSend("position fen " + fen);
   sfSend("go movetime " + Math.round(movetimeMs));
   
   // Timeout fallback
   setTimeout(() => {
-   if (busy) {
-    busy = false;
-    res(null);
-   }
-  }, movetimeMs + 5000);
+   if (!busy) return;
+   // ask engine to stop; give it a moment to return bestmove
+   sfSend("stop");
+   setTimeout(() => {
+    if (busy) { busy = false; res(null); }
+   }, 1500);
+  }, Math.max(1500, movetimeMs + 800));
  });
 }
 
