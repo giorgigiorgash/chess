@@ -3,894 +3,868 @@
 <head>
 <meta charset="UTF-8">
 <title>Chess Arena Pro+</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23121212'/><text x='16' y='22' font-size='20' text-anchor='middle' fill='%237cb342'>♔</text></svg>">
 
 <!-- LIBS -->
-<link rel="stylesheet"
-href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
-
+<link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
-<!-- UI -->
 <style>
-
 :root{
- --bg:#121212;
- --panel:#1c1c1c;
- --accent:#7cb342;
- --text:#fff;
- --muted:#aaa;
+  --bg:#121212;
+  --panel:#1c1c1c;
+  --accent:#7cb342;
+  --text:#fff;
+  --muted:#aaa;
+  --sqSel: rgba(124,179,66,.35);
+  --sqHint: rgba(255, 213, 79, .35);
 }
 
+*{ box-sizing:border-box; }
+
 body{
- margin:0;
- background:var(--bg);
- color:var(--text);
- font-family:Segoe UI,Arial;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Segoe UI,Arial;
+  overscroll-behavior: none;
 }
 
 .app{
- display:grid;
- grid-template-columns:260px 1fr 300px;
- min-height:100vh;
- gap:15px;
- padding:15px;
+  display:grid;
+  grid-template-columns:260px 1fr 300px;
+  min-height:100vh;
+  gap:15px;
+  padding:15px;
 }
 
-
-/* LEFT PANEL */
-
 .sidebar{
- background:var(--panel);
- border-radius:12px;
- padding:15px;
- display:flex;
- flex-direction:column;
- gap:10px;
+  background:var(--panel);
+  border-radius:12px;
+  padding:15px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
 }
 
 .logo{
- font-size:22px;
- font-weight:700;
- text-align:center;
- color:var(--accent);
+  font-size:22px;
+  font-weight:700;
+  text-align:center;
+  color:var(--accent);
 }
 
 .btn{
- background:#2b2b2b;
- border:none;
- color:white;
- padding:10px;
- border-radius:8px;
- cursor:pointer;
- font-weight:600;
- transition:.2s;
+  background:#2b2b2b;
+  border:none;
+  color:white;
+  padding:10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-weight:600;
+  transition:.2s;
 }
-
-.btn:hover{
- background:var(--accent);
- color:black;
-}
-
-.btn.primary{
- background:var(--accent);
- color:black;
-}
-
-
-/* CENTER */
+.btn:hover{ background:var(--accent); color:black; }
+.btn.primary{ background:var(--accent); color:black; }
 
 .center{
- display:flex;
- flex-direction:column;
- align-items:center;
- gap:10px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:10px;
 }
 
+#boardWrap{
+  width: min(520px, 92vw);
+}
 #board{
- width:480px;
- max-width:90vw;
+  width:100%;
+  max-width:92vw;
+  border-radius:12px;
+  overflow:hidden;
+
+  /* Critical mobile fix: stop page panning while interacting with board */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .status{
- background:var(--panel);
- padding:10px;
- border-radius:8px;
- width:100%;
- text-align:center;
+  background:var(--panel);
+  padding:10px;
+  border-radius:8px;
+  width:100%;
+  text-align:center;
 }
 
-
-/* RIGHT */
-
 .panel{
- background:var(--panel);
- border-radius:12px;
- padding:12px;
- display:flex;
- flex-direction:column;
+  background:var(--panel);
+  border-radius:12px;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
 }
 
 .panel h3{
- margin:5px 0;
- font-size:14px;
- color:var(--muted);
- text-transform:uppercase;
+  margin:5px 0;
+  font-size:14px;
+  color:var(--muted);
+  text-transform:uppercase;
 }
 
-#moves{
- flex:1;
- overflow:auto;
- font-size:14px;
-}
+#moves{ flex:1; overflow:auto; font-size:14px; }
+.move{ padding:4px; border-bottom:1px solid #333; }
 
-.move{
- padding:4px;
- border-bottom:1px solid #333;
-}
-
-.review{
- flex:1;
- overflow:auto;
- font-size:13px;
- color:#ffd54f;
-}
-
-
-/* MULTI */
+.review{ flex:1; overflow:auto; font-size:13px; color:#ffd54f; }
 
 .multiBox{
- background:#222;
- padding:8px;
- border-radius:6px;
- font-size:13px;
+  background:#222;
+  padding:8px;
+  border-radius:6px;
+  font-size:13px;
 }
 
 input{
- width:100%;
- padding:6px;
- border-radius:6px;
- border:none;
- background:#333;
- color:white;
+  width:100%;
+  padding:6px;
+  border-radius:6px;
+  border:none;
+  background:#333;
+  color:white;
 }
 
 .ratingBox{
- margin-top:8px;
- padding:10px;
- background:#252525;
- border-radius:8px;
+  margin-top:8px;
+  padding:10px;
+  background:#252525;
+  border-radius:8px;
 }
 .ratingLabel{
- display:block;
- font-size:12px;
- color:var(--muted);
- margin-bottom:6px;
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
 }
 .ratingRow{
- display:flex;
- align-items:center;
- gap:10px;
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
 .eloSlider{
- flex:1;
- min-width:0;
- height:8px;
- -webkit-appearance:none;
- appearance:none;
- background:#333;
- border-radius:4px;
+  flex:1;
+  min-width:0;
+  height:8px;
+  -webkit-appearance:none;
+  appearance:none;
+  background:#333;
+  border-radius:4px;
 }
 .eloSlider::-webkit-slider-thumb{
- -webkit-appearance:none;
- width:18px;
- height:18px;
- border-radius:50%;
- background:var(--accent);
- cursor:grab;
+  -webkit-appearance:none;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:var(--accent);
+  cursor:grab;
 }
 .eloSlider::-moz-range-thumb{
- width:18px;
- height:18px;
- border-radius:50%;
- background:var(--accent);
- cursor:grab;
- border:none;
+  width:18px;
+  height:18px;
+  border-radius:50%;
+  background:var(--accent);
+  cursor:grab;
+  border:none;
 }
 .rating{
- font-weight:700;
- color:var(--accent);
- min-width:44px;
- text-align:right;
+  font-weight:700;
+  color:var(--accent);
+  min-width:44px;
+  text-align:right;
 }
 .ratingHint{
- font-size:11px;
- color:#666;
- margin-top:4px;
+  font-size:11px;
+  color:#666;
+  margin-top:4px;
 }
 .engineBox{
- margin-top:8px;
- padding:8px;
- background:#252525;
- border-radius:8px;
- font-size:12px;
+  margin-top:8px;
+  padding:8px;
+  background:#252525;
+  border-radius:8px;
+  font-size:12px;
 }
 .engineStatus{ color:var(--muted); }
 .engineStatus.ready{ color:var(--accent); }
 .engineStatus.fail{ color:#f44336; }
 .btnSmall{ padding:6px 10px; font-size:12px; margin-top:6px; }
 
-
 @media(max-width:900px){
- .app{
-  grid-template-columns:1fr;
- }
+  .app{ grid-template-columns:1fr; }
+  .panel{ min-height:220px; }
 }
 
+/* Square highlight overlays — Chess.com style */
+.highlight-sel{
+ background: rgba(124,179,66,.45) !important;
+}
+.highlight-hint{
+ position:relative;
+}
+.highlight-hint::after{
+ content:"";
+ position:absolute;
+ inset:0;
+ margin:auto;
+ width:26%;
+ height:26%;
+ border-radius:50%;
+ background:rgba(0,0,0,.18);
+ pointer-events:none;
+}
+/* capture target: ring instead of dot */
+.highlight-capture{
+ position:relative;
+}
+.highlight-capture::after{
+ content:"";
+ position:absolute;
+ inset:0;
+ margin:auto;
+ width:82%;
+ height:82%;
+ border-radius:50%;
+ border:5px solid rgba(0,0,0,.18);
+ background:transparent;
+ pointer-events:none;
+ box-sizing:border-box;
+}
 </style>
 </head>
 
 <body>
-
 <div class="app">
+  <div class="sidebar">
+    <div class="logo">♟ Chess Arena Pro+</div>
 
-<!-- LEFT -->
+    <button class="btn primary" id="aiBtn">Play vs AI</button>
+    <button class="btn" id="localBtn">Local Multiplayer</button>
 
-<div class="sidebar">
+    <button class="btn" id="analyzeBtn">Analyze Game</button>
+    <button class="btn" id="newBtn">New Game</button>
 
-<div class="logo">♟ Chess Arena Pro+</div>
+    <button class="btn" id="saveBtn">Save</button>
+    <button class="btn" id="loadBtn">Load</button>
 
-<button class="btn primary" id="aiBtn">Play vs AI</button>
-<button class="btn" id="localBtn">Local Multiplayer</button>
+    <div class="multiBox">
+      <b>Online Multiplayer</b><br><br>
+      Your ID:
+      <div id="myId">...</div><br>
+      <input id="peerId" placeholder="Opponent ID">
+      <button class="btn" id="connectBtn">Connect</button>
+    </div>
 
-<button class="btn" id="analyzeBtn">Analyze Game</button>
-<button class="btn" id="newBtn">New Game</button>
+    <div class="ratingBox">
+      <label class="ratingLabel">AI strength (Chess.com-like)</label>
+      <div class="ratingRow">
+        <input type="range" id="eloSlider" min="400" max="2800" step="100" value="1200" class="eloSlider">
+        <span id="rating" class="rating">1200</span>
+      </div>
+      <div class="ratingHint">400–1200 = blunders/short-sight, 1300+ = stronger play</div>
+    </div>
 
-<button class="btn" id="saveBtn">Save</button>
-<button class="btn" id="loadBtn">Load</button>
+    <div class="engineBox">
+      <span id="engineStatus" class="engineStatus">Engine: loading…</span>
+      <button type="button" class="btn btnSmall" id="engineRetryBtn" style="display:none">Reload engine</button>
+    </div>
+  </div>
 
+  <div class="center">
+    <div class="status" id="status">Welcome</div>
 
-<div class="multiBox">
+    <div id="boardWrap">
+      <div id="board"></div>
+    </div>
+  </div>
 
-<b>Online Multiplayer</b><br><br>
+  <div class="panel">
+    <h3>Moves</h3>
+    <div id="moves"></div>
 
-Your ID:
-<div id="myId">...</div><br>
-
-<input id="peerId" placeholder="Opponent ID">
-
-<button class="btn" id="connectBtn">Connect</button>
-
+    <h3>Review</h3>
+    <div class="review" id="review"></div>
+  </div>
 </div>
-
-
-<div class="ratingBox">
- <label class="ratingLabel">AI strength (ELO)</label>
- <div class="ratingRow">
-  <input type="range" id="eloSlider" min="400" max="2800" step="100" value="1200" class="eloSlider">
-  <span id="rating" class="rating">1200</span>
- </div>
- <div class="ratingHint">Drag to set difficulty (400–2800)</div>
-</div>
-
-<div class="engineBox">
- <span id="engineStatus" class="engineStatus">Engine: loading…</span>
- <button type="button" class="btn btnSmall" id="engineRetryBtn" style="display:none">Reload engine</button>
-</div>
-
-</div>
-
-
-<!-- CENTER -->
-
-<div class="center">
-
-<div class="status" id="status">
-Welcome
-</div>
-
-<div id="board"></div>
-
-</div>
-
-
-<!-- RIGHT -->  
-
-<div class="panel">
-
-<h3>Moves</h3>
-<div id="moves"></div>
-
-<h3>Review</h3>
-<div class="review" id="review"></div>
-
-</div>
-
-</div>
-
-
 
 <script>
 /* ======================
    GAME
 ====================== */
-
 let game = new Chess();
 let board;
 
-let mode="ai"; // ai, local, online
-
-let playerColor="w";
-
+let mode = "ai"; // ai, local, online
+let playerColor = "w";
 
 /* ======================
-   RATING (draggable ELO = AI strength)
+   MOBILE SCROLL LOCK
 ====================== */
+let scrollLocked = false;
+function lockScroll(lock){
+  if (scrollLocked === lock) return;
+  scrollLocked = lock;
+  document.body.style.overflow = lock ? "hidden" : "";
+  document.body.style.touchAction = lock ? "none" : "";
+}
 
+/* ======================
+   RATING SLIDER
+====================== */
 let elo = Math.min(2800, Math.max(400, Number(localStorage.getItem("elo")) || 1200));
-
 const eloSlider = document.getElementById("eloSlider");
 const ratingEl = document.getElementById("rating");
 
-function setEloDisplay(v) {
- elo = Math.min(2800, Math.max(400, Number(v)));
- eloSlider.value = elo;
- ratingEl.innerText = elo;
- localStorage.setItem("elo", String(elo));
+function setEloDisplay(v){
+  elo = Math.min(2800, Math.max(400, Number(v)));
+  eloSlider.value = elo;
+  ratingEl.innerText = elo;
+  localStorage.setItem("elo", String(elo));
 }
-
 eloSlider.value = elo;
 ratingEl.innerText = elo;
 eloSlider.addEventListener("input", () => setEloDisplay(eloSlider.value));
 
-
 /* ======================
-   STOCKFISH - FIXED VERSION
+   STOCKFISH (UCI)
 ====================== */
-
-let sf, ready = false, busy = false, resolveSF;
+let sf, ready=false, busy=false, resolveSF;
 let sfOptions = new Set();
-let sfConfiguredFor = null; // string key of last config
-
-function sfSend(cmd) {
- if (!sf) return;
- // Send as plain string - standard UCI protocol
- sf.postMessage(cmd);
-}
-
-function onSFMessage(e) {
- const line = (typeof e.data === "string" ? e.data : String(e.data || "")).trim();
- if (!line) return;
- 
- console.log("SF:", line); // Debug logging
-
- // capture supported options so we can configure strength correctly
- if (line.startsWith("option name ")) {
-  // "option name Skill Level type spin default 20 min 0 max 20"
-  const name = line.slice("option name ".length).split(" type ")[0].trim();
-  if (name) sfOptions.add(name);
- }
- 
- if (line === "uciok") {
-  sfSend("isready");
-  return;
- }
- if (line === "readyok") {
-  ready = true;
-  return;
- }
- if (line.startsWith("bestmove")) {
-  const parts = line.split(/\s+/);
-  const move = parts[1] || null;
-  if (typeof resolveSF === "function") resolveSF(move);
-  busy = false;
- }
-}
-
-function setEngineStatus(cls, text) {
- const el = document.getElementById("engineStatus");
- const retry = document.getElementById("engineRetryBtn");
- if (el) {
-  el.className = "engineStatus " + (cls || "");
-  el.textContent = text;
- }
- if (retry) {
-  retry.style.display = (cls === "fail") ? "inline-block" : "none";
- }
-}
-
+let sfConfiguredFor = null;
 let sfInitPromise = null;
 
-function initSF() {
- ready = false;
- busy = false;
- resolveSF = null;
- sfOptions = new Set();
- sfConfiguredFor = null;
- 
- try {
-  if (sf) sf.terminate();
- } catch {}
- 
- // Use stockfish.js (non-wasm version) for better compatibility
- const url = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
- const code = `importScripts("${url}")`;
- const blob = new Blob([code]);
- const blobUrl = URL.createObjectURL(blob);
- 
- sf = new Worker(blobUrl);
- 
- sf.onerror = (err) => {
-  console.error("Stockfish worker error:", err);
-  setEngineStatus("fail", "Engine: failed");
-  ready = false;
- };
- 
- sf.onmessage = onSFMessage;
- 
- // Initialize UCI
- sfSend("uci");
+function sfSend(cmd){ if (sf) sf.postMessage(cmd); }
+
+function setEngineStatus(cls, text){
+  const el = document.getElementById("engineStatus");
+  const retry = document.getElementById("engineRetryBtn");
+  if (el){
+    el.className = "engineStatus " + (cls || "");
+    el.textContent = text;
+  }
+  if (retry) retry.style.display = (cls === "fail") ? "inline-block" : "none";
 }
 
-async function ensureSF() {
- if (ready) return;
- if (sfInitPromise) return sfInitPromise;
- 
- setEngineStatus("", "Engine: loading…");
- 
- sfInitPromise = new Promise((resolve, reject) => {
-  initSF();
-  
-  const timeout = setTimeout(() => {
-   if (!ready) {
-    setEngineStatus("fail", "Engine: timeout");
-    reject(new Error("Engine timeout"));
-   }
-  }, 15000);
-  
-  const checkReady = setInterval(() => {
-   if (ready) {
-    clearInterval(checkReady);
-    clearTimeout(timeout);
-    setEngineStatus("ready", "Engine: ready");
-    resolve();
-   }
-  }, 100);
- });
- 
- return sfInitPromise;
+function onSFMessage(e){
+  const line = (typeof e.data === "string" ? e.data : String(e.data || "")).trim();
+  if (!line) return;
+
+  if (line.startsWith("option name ")){
+    const name = line.slice("option name ".length).split(" type ")[0].trim();
+    if (name) sfOptions.add(name);
+  }
+
+  if (line === "uciok"){ sfSend("isready"); return; }
+  if (line === "readyok"){ ready = true; return; }
+
+  if (line.startsWith("bestmove")){
+    const parts = line.split(/\s+/);
+    const move = parts[1] || null;
+    if (typeof resolveSF === "function") resolveSF(move);
+    busy = false;
+  }
 }
 
-// Start loading immediately
-ensureSF().catch(() => {});
+function initSF(){
+  ready=false; busy=false; resolveSF=null;
+  sfOptions = new Set();
+  sfConfiguredFor = null;
 
-function clampEloForSF(e) {
- return Math.min(3190, Math.max(1320, Math.round(e)));
+  try{ if (sf) sf.terminate(); }catch{}
+  const url = "https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js";
+  const code = `importScripts("${url}")`;
+  const blob = new Blob([code]);
+  const blobUrl = URL.createObjectURL(blob);
+  sf = new Worker(blobUrl);
+
+  sf.onerror = (err) => {
+    console.error("Stockfish worker error:", err);
+    setEngineStatus("fail","Engine: failed");
+    ready = false;
+  };
+  sf.onmessage = onSFMessage;
+
+  sfSend("uci");
 }
 
+async function ensureSF(){
+  if (ready) return;
+  if (sfInitPromise) return sfInitPromise;
+
+  setEngineStatus("","Engine: loading…");
+  sfInitPromise = new Promise((resolve, reject) => {
+    initSF();
+
+    const timeout = setTimeout(() => {
+      if (!ready){
+        setEngineStatus("fail","Engine: timeout");
+        reject(new Error("Engine timeout"));
+      }
+    }, 15000);
+
+    const check = setInterval(() => {
+      if (ready){
+        clearInterval(check);
+        clearTimeout(timeout);
+        setEngineStatus("ready","Engine: ready");
+        resolve();
+      }
+    }, 100);
+  });
+
+  return sfInitPromise;
+}
+ensureSF().catch(()=>{});
+
+/* --- Chess.com-like weakness mapping ---
+   Stockfish's docs: low Skill Level increases randomized bias so it doesn't always pick best. */
 function mapEloToSkill(e){
- // 400..2800 -> 0..20
- const t = (Math.min(2800, Math.max(400, e)) - 400) / (2800 - 400);
- return Math.min(20, Math.max(0, Math.round(t * 20)));
+  // 400..2800 -> 0..20 (nonlinear to make low end weaker)
+  const x = (Math.min(2800, Math.max(400, e)) - 400) / 2400;
+  const curved = Math.pow(x, 1.35);
+  return Math.max(0, Math.min(20, Math.round(curved * 20)));
+}
+
+function clampUciElo(e){
+  // Stockfish UCI_Elo valid range is 1320..3190
+  return Math.min(3190, Math.max(1320, Math.round(e)));
 }
 
 function configureSF(){
- // configure only when needed
- const key = JSON.stringify({ elo, opts: Array.from(sfOptions).sort() });
- if (sfConfiguredFor === key) return;
- sfConfiguredFor = key;
+  const key = JSON.stringify({ elo, opts: Array.from(sfOptions).sort() });
+  if (sfConfiguredFor === key) return;
+  sfConfiguredFor = key;
 
- // reduce overhead if supported
- if (sfOptions.has("Move Overhead")) sfSend("setoption name Move Overhead value 0");
- if (sfOptions.has("Minimum Thinking Time")) sfSend("setoption name Minimum Thinking Time value 0");
+  if (sfOptions.has("Move Overhead")) sfSend("setoption name Move Overhead value 0");
+  if (sfOptions.has("Minimum Thinking Time")) sfSend("setoption name Minimum Thinking Time value 0");
+  if (sfOptions.has("MultiPV")) sfSend("setoption name MultiPV value 1"); // recommended for strength focus
 
- // strength mapping
- if (sfOptions.has("UCI_LimitStrength") && sfOptions.has("UCI_Elo")) {
-  const uciElo = clampEloForSF(elo);
-  sfSend("setoption name UCI_LimitStrength value true");
-  sfSend("setoption name UCI_Elo value " + uciElo);
- } else if (sfOptions.has("Skill Level")) {
   const skill = mapEloToSkill(elo);
-  sfSend("setoption name Skill Level value " + skill);
- }
+
+  // For low Elo, prefer Skill Level randomness (more human blunders).
+  if (elo < 1320){
+    if (sfOptions.has("UCI_LimitStrength")) sfSend("setoption name UCI_LimitStrength value false");
+    if (sfOptions.has("Skill Level")) sfSend("setoption name Skill Level value " + skill);
+    return;
+  }
+
+  // For 1320+, use real UCI Elo limiting if available.
+  if (sfOptions.has("UCI_LimitStrength") && sfOptions.has("UCI_Elo")){
+    sfSend("setoption name UCI_LimitStrength value true");
+    sfSend("setoption name UCI_Elo value " + clampUciElo(elo));
+  } else if (sfOptions.has("Skill Level")){
+    sfSend("setoption name Skill Level value " + skill);
+  }
 }
 
-async function sfMove(fen) {
- await ensureSF();
- 
- return new Promise(res => {
-  if (busy) return res(null);
-  busy = true;
-  resolveSF = (uci) => {
-   busy = false;
-   res(uci);
-  };
-  
-  const movetimeMs = Math.min(200, Math.max(80, 80 + (elo - 400) / 12));
-  
-  configureSF();
-  sfSend("position fen " + fen);
-  sfSend("go movetime " + Math.round(movetimeMs));
-  
-  // Timeout fallback
-  setTimeout(() => {
-   if (!busy) return;
-   // ask engine to stop; give it a moment to return bestmove
-   sfSend("stop");
-   setTimeout(() => {
-    if (busy) { busy = false; res(null); }
-   }, 1500);
-  }, Math.max(1500, movetimeMs + 800));
- });
-}
+async function sfMove(fen){
+  await ensureSF();
 
+  return new Promise(res => {
+    if (busy) return res(null);
+    busy = true;
+    resolveSF = (uci) => { busy=false; res(uci); };
+
+    // Chess.com-ish: low Elo plays fast; high Elo uses more time.
+    const movetimeMs =
+      elo <= 600  ? 80  :
+      elo <= 900  ? 120 :
+      elo <= 1200 ? 160 :
+      elo <= 1600 ? 240 :
+      elo <= 2000 ? 350 :
+      elo <= 2400 ? 500 : 700;
+
+    configureSF();
+    sfSend("position fen " + fen);
+    sfSend("go movetime " + movetimeMs);
+
+    setTimeout(() => {
+      if (!busy) return;
+      sfSend("stop");
+      setTimeout(() => { if (busy){ busy=false; res(null); } }, 1200);
+    }, Math.max(1400, movetimeMs + 700));
+  });
+}
 
 /* ======================
    PEER (ONLINE)
 ====================== */
-
 let peer=null, conn=null;
 
-try {
- peer = new Peer();
- peer.on("open", id => { document.getElementById("myId").innerText = id; });
- peer.on("connection", c => {
-  conn = c;
-  setupConn();
-  mode = "online";
-  playerColor = "b";
-  reset();
- });
-} catch (e) {
- console.warn("Peer failed", e);
- document.getElementById("myId").innerText = "(offline)";
+try{
+  peer = new Peer();
+  peer.on("open", id => { document.getElementById("myId").innerText = id; });
+  peer.on("connection", c => {
+    conn = c;
+    setupConn();
+    mode = "online";
+    playerColor = "b";
+    reset();
+  });
+}catch(e){
+  console.warn("Peer failed", e);
+  document.getElementById("myId").innerText = "(offline)";
 }
-
 
 function setupConn(){
-
- conn.on("data",d=>{
-
-  if(d.type==="move"){
-
-   game.move(d.move);
-
-   board.position(game.fen());
-
-   update();
-   checkEnd();
-  }
-
-  if(d.type==="new"){
-   reset();
-  }
- });
+  conn.on("data", d => {
+    if (d.type === "move"){
+      game.move(d.move);
+      board.position(game.fen());
+      clearTapState();
+      update();
+      updateMoves();
+      checkEnd();
+    }
+    if (d.type === "new") reset();
+  });
 }
-
 
 /* ======================
-   BOARD
+   HIGHLIGHTS + TAP-TO-MOVE
 ====================== */
+let tapFrom = null;
+let tapHints = [];
 
-function onDragStart(s,p){
-
- if(game.game_over()) return false;
-
- if(mode==="ai" && p[0]==="b") return false;
-
- if(mode==="online" && p[0]!==playerColor)
-  return false;
+function squareEl(square){
+  // chessboard.js squares have data-square attr
+  return document.querySelector('#board .square-' + square);
 }
 
-
-function onDrop(s,t){
-
- let m=game.move({
-  from:s,
-  to:t,
-  promotion:"q"
- });
-
- if(!m) return "snapback";
-
-
- if(mode==="online"){
-  conn.send({type:"move",move:m});
- }
-
-
- update();
- updateMoves();
-
- if(mode==="ai" && !game.game_over()){
-  setTimeout(aiMove,200);
- }
-
- checkEnd();
+function clearHighlights(){
+  document.querySelectorAll('#board .highlight-sel, #board .highlight-hint, #board .highlight-capture')
+    .forEach(el => el.classList.remove('highlight-sel','highlight-hint','highlight-capture'));
 }
 
+function showTapHints(from){
+  clearHighlights();
+  tapHints = [];
 
-board=Chessboard("board",{
- draggable:true,
- position:"start",
- onDragStart,
- onDrop,
- onSnapEnd:()=>board.position(game.fen()),
- pieceTheme:
- "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png"
+  const fromEl = squareEl(from);
+  if (fromEl) fromEl.classList.add('highlight-sel');
+
+  const moves = game.moves({ square: from, verbose: true });
+  for (const m of moves){
+    tapHints.push(m.to);
+    const el = squareEl(m.to);
+    if (el) el.classList.add(m.captured ? 'highlight-capture' : 'highlight-hint');
+  }
+}
+
+function clearTapState(){
+  tapFrom = null;
+  tapHints = [];
+  clearHighlights();
+}
+
+function isMyTurnPiece(piece){
+  if (!piece) return false;
+  // chess.js piece obj: {type:'p', color:'w'}
+  if (mode === "ai") return piece.color === "w";
+  if (mode === "online") return piece.color === playerColor;
+  return true; // local: both sides allowed
+}
+
+function tryTapMove(toSquare){
+  if (!tapFrom) return false;
+
+  const move = game.move({ from: tapFrom, to: toSquare, promotion: "q" });
+  if (!move) return false;
+
+  board.position(game.fen());
+  update();
+  updateMoves();
+  checkEnd();
+
+  if (mode === "online") conn?.send({ type:"move", move });
+  clearTapState();
+
+  if (mode === "ai" && !game.game_over()){
+    setTimeout(aiMove, 120);
+  }
+  return true;
+}
+
+// Attach DOM click handler for tap-to-move (works because each square has data-square attribute)
+function installTapHandlers(){
+  const root = document.getElementById("board");
+  root.addEventListener("click", (ev) => {
+    const sq = ev.target?.closest?.("[data-square]");
+    if (!sq) return;
+
+    const square = sq.getAttribute("data-square");
+    if (!square) return;
+
+    if (game.game_over()) return;
+
+    // If we have a selected from-square, attempt move to clicked square
+    if (tapFrom){
+      // Clicking same square cancels (Chess.com-like)
+      if (square === tapFrom){ clearTapState(); return; }
+      if (tryTapMove(square)) return;
+      // If failed, but clicked another own piece, re-select it
+      const p = game.get(square);
+      if (p && isMyTurnPiece(p)){
+        tapFrom = square;
+        showTapHints(tapFrom);
+      } else {
+        // otherwise just keep selection (or clear—your call). We'll clear for simplicity.
+        clearTapState();
+      }
+      return;
+    }
+
+    // No selection yet: select if it's your piece
+    const piece = game.get(square);
+    if (piece && isMyTurnPiece(piece)){
+      tapFrom = square;
+      showTapHints(tapFrom);
+    } else {
+      clearTapState();
+    }
+  }, { passive: true });
+}
+
+/* ======================
+   BOARD (DRAG + DROP)
+====================== */
+let dragReallyMoved = false;
+
+function onDragStart(source, piece){
+  if (game.game_over()) return false;
+  if (mode === "ai" && piece[0] === "b") return false;
+  if (mode === "online" && piece[0] !== playerColor) return false;
+
+  dragReallyMoved = false;
+  lockScroll(true);
+
+  // Show hints while dragging — but DON'T clear existing tap state yet.
+  // We only clear if the user actually drags to a different square.
+  tapFrom = source;
+  showTapHints(source);
+}
+
+function onDrop(source, target){
+  lockScroll(false);
+
+  // Same square = user tapped, not dragged. Keep highlights for tap-to-move.
+  if (source === target) return "snapback";
+
+  clearTapState();
+
+  let m = game.move({ from: source, to: target, promotion: "q" });
+  if (!m) return "snapback";
+
+  if (mode === "online") conn?.send({ type:"move", move:m });
+
+  update();
+  updateMoves();
+  checkEnd();
+
+  if (mode === "ai" && !game.game_over()) setTimeout(aiMove, 120);
+}
+
+board = Chessboard("board", {
+  draggable: true,
+  position: "start",
+  onDragStart,
+  onDrop,
+  onSnapEnd: () => { lockScroll(false); board.position(game.fen()); },
+  pieceTheme: "https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png"
 });
 
+installTapHandlers();
 
 /* ======================
    AI
 ====================== */
-
 async function aiMove(){
- if (game.game_over()) return;
- document.getElementById("status").innerText = "AI thinking…";
- const fen = game.fen();
- let uci = null;
- try {
-  uci = await sfMove(fen);
- } catch (e) {
-  console.warn("AI move failed", e);
-  const msg = (e && e.message) ? e.message : String(e);
-  if (msg.includes("timeout")) {
-   document.getElementById("status").innerText = "Engine still loading… please wait and try again";
-  } else {
-   document.getElementById("status").innerText =
-    "Engine failed to load. Please reload the page.";
+  if (game.game_over()) return;
+  document.getElementById("status").innerText = "AI thinking…";
+
+  const fen = game.fen();
+  let uci = null;
+
+  try{
+    uci = await sfMove(fen);
+  }catch(e){
+    console.warn("AI move failed", e);
+    document.getElementById("status").innerText = "Engine problem. Reload page or retry engine.";
+    return;
   }
-  return;
- }
 
- if (!uci || uci === "(none)" || uci.length < 4) return;
+  if (!uci || uci === "(none)" || uci.length < 4) return;
 
- const from = uci.slice(0, 2);
- const to = uci.slice(2, 4);
- const moveObj = { from, to };
- if (uci.length >= 5) moveObj.promotion = uci[4].toLowerCase();
+  const from = uci.slice(0,2);
+  const to = uci.slice(2,4);
+  const moveObj = { from, to };
+  if (uci.length >= 5) moveObj.promotion = uci[4].toLowerCase();
 
- const m = game.move(moveObj);
- if (!m) return;
+  const m = game.move(moveObj);
+  if (!m) return;
 
- board.position(game.fen());
- update();
- updateMoves();
- checkEnd();
+  board.position(game.fen());
+  update();
+  updateMoves();
+  checkEnd();
 }
-
 
 /* ======================
    UI
 ====================== */
-
 function update(){
-
- let s="";
-
- if(game.in_checkmate())
-  s="Checkmate";
-
- else if(game.in_draw())
-  s="Draw";
-
- else
-  s=(game.turn()=="w"?"White":"Black")+" to move";
-
- document.getElementById("status").innerText=s;
+  let s = "";
+  if (game.in_checkmate()) s = "Checkmate";
+  else if (game.in_draw()) s = "Draw";
+  else s = (game.turn() === "w" ? "White" : "Black") + " to move";
+  document.getElementById("status").innerText = s;
 }
-
 
 function updateMoves(){
-
- let h=game.history({verbose:true});
-
- let box=document.getElementById("moves");
-
- box.innerHTML="";
-
- for(let i=0;i<h.length;i+=2){
-
-  let d=document.createElement("div");
-
-  d.className="move";
-
-  d.innerText=
-   (i/2+1)+". "+
-   (h[i]?.san||"")+" "+
-   (h[i+1]?.san||"");
-
-  box.appendChild(d);
- }
-
- box.scrollTop=99999;
+  let h = game.history({ verbose:true });
+  let box = document.getElementById("moves");
+  box.innerHTML = "";
+  for (let i=0;i<h.length;i+=2){
+    let d=document.createElement("div");
+    d.className="move";
+    d.innerText = (i/2+1)+". " + (h[i]?.san||"") + " " + (h[i+1]?.san||"");
+    box.appendChild(d);
+  }
+  box.scrollTop = 99999;
 }
-
 
 /* ======================
    ANALYSIS
 ====================== */
-
 async function analyze(){
+  let hist = game.history({ verbose:true });
+  if (!hist.length) return alert("No game");
+  let temp = new Chess();
+  let review = document.getElementById("review");
+  review.innerHTML = "Analyzing...<br>";
 
- let hist=game.history({verbose:true});
+  for (let i=0;i<hist.length;i++){
+    let prev = temp.fen();
+    temp.move(hist[i]);
 
- if(!hist.length) return alert("No game");
+    let best=null;
+    try{ best = await sfMove(prev); }
+    catch(e){ alert("Engine not available for analysis"); break; }
 
- let temp=new Chess();
+    if (!best) continue;
+    let test = new Chess(prev);
 
- let review=document.getElementById("review");
+    const moveObj = { from: best.slice(0,2), to: best.slice(2,4) };
+    if (best.length >= 5) moveObj.promotion = best[4].toLowerCase();
+    test.move(moveObj);
 
- review.innerHTML="Analyzing...<br>";
-
-
- for(let i=0;i<hist.length;i++){
-
-  let prev=temp.fen();
-
-  temp.move(hist[i]);
-
-  let best=null;
-  try{
-   best=await sfMove(prev);
-  }catch(e){
-   alert("Engine not available for analysis");
-   break;
+    if (test.fen() !== temp.fen()){
+      review.innerHTML += "Move " + (i+1) + " (" + hist[i].san + ") mistake<br>";
+    }
   }
-
-  if(!best) continue;
-
-  let test=new Chess(prev);
-
-  const moveObj = { from: best.slice(0,2), to: best.slice(2,4) };
-  if (best && best.length >= 5) moveObj.promotion = best[4].toLowerCase();
-  test.move(moveObj);
-
-
-  if(test.fen()!=temp.fen()){
-
-   review.innerHTML+=
-    "Move "+(i+1)+
-    " ("+hist[i].san+") mistake<br>";
-  }
- }
-
- review.innerHTML+="Done ✔";
+  review.innerHTML += "Done ✔";
 }
-
 
 /* ======================
    SAVE / LOAD
 ====================== */
-
 function saveGame(){
-
- localStorage.setItem("pgn",game.pgn());
- alert("Saved");
+  localStorage.setItem("pgn", game.pgn());
+  alert("Saved");
 }
-
 function loadGame(){
-
- let p=localStorage.getItem("pgn");
-
- if(!p) return alert("No save");
-
- game.load_pgn(p);
-
- board.position(game.fen());
-
- update();
- updateMoves();
+  let p = localStorage.getItem("pgn");
+  if (!p) return alert("No save");
+  game.load_pgn(p);
+  board.position(game.fen());
+  clearTapState();
+  update();
+  updateMoves();
 }
-
 
 /* ======================
-   RATING
+   SIMPLE RATING UPDATE (vs AI only)
 ====================== */
-
 function updateElo(res){
- const K=24;
- const opp=1500;
- const exp=1/(1+Math.pow(10,(opp-elo)/400));
- const s= res==="win"?1 : res==="draw"?0.5 : 0;
- elo=Math.round(elo+K*(s-exp));
- elo=Math.min(2800,Math.max(400,elo));
- localStorage.setItem("elo",String(elo));
- eloSlider.value=elo;
- ratingEl.innerText=elo;
+  const K=24;
+  const opp=1500;
+  const exp=1/(1+Math.pow(10,(opp-elo)/400));
+  const s= res==="win"?1 : res==="draw"?0.5 : 0;
+  elo=Math.round(elo+K*(s-exp));
+  elo=Math.min(2800,Math.max(400,elo));
+  localStorage.setItem("elo",String(elo));
+  eloSlider.value=elo;
+  ratingEl.innerText=elo;
 }
-
 
 /* ======================
    END
 ====================== */
-
 function checkEnd(){
-
- if(!game.game_over()) return;
-
- let r="draw";
-
- if(game.in_checkmate()){
-  if(game.turn()=="w") r="loss";
-  else r="win";
- }
-
- if(mode==="ai") updateElo(r);
-
- alert("Game Over: "+r);
+  if (!game.game_over()) return;
+  let r="draw";
+  if (game.in_checkmate()){
+    if (game.turn()==="w") r="loss";
+    else r="win";
+  }
+  if (mode==="ai") updateElo(r);
+  setTimeout(() => alert("Game Over: " + r), 20);
 }
-
 
 /* ======================
    CONTROLS
 ====================== */
-
 function reset(){
-
- game.reset();
-
- board.position("start");
-
- update();
- updateMoves();
-
- document.getElementById("review").innerHTML="";
-
- if(mode==="online" && conn){
-  conn.send({type:"new"});
- }
+  game.reset();
+  board.position("start");
+  clearTapState();
+  update();
+  updateMoves();
+  document.getElementById("review").innerHTML="";
+  if (mode==="online" && conn) conn.send({type:"new"});
 }
 
+document.getElementById("aiBtn").onclick = () => { mode="ai"; playerColor="w"; reset(); };
+document.getElementById("localBtn").onclick = () => { mode="local"; reset(); };
+document.getElementById("newBtn").onclick = reset;
+document.getElementById("saveBtn").onclick = saveGame;
+document.getElementById("loadBtn").onclick = loadGame;
+document.getElementById("analyzeBtn").onclick = analyze;
 
-document.getElementById("aiBtn").onclick=()=>{
- mode="ai";
- playerColor="w";
- reset();
+document.getElementById("connectBtn").onclick = () => {
+  const id = document.getElementById("peerId").value.trim();
+  if (!id) return alert("Enter opponent ID");
+  if (!peer) return alert("Online multiplayer not available");
+  conn = peer.connect(id);
+  conn.on("open", () => {
+    setupConn();
+    mode="online";
+    playerColor="w";
+    reset();
+  });
 };
 
-document.getElementById("localBtn").onclick=()=>{
- mode="local";
- reset();
-};
-
-document.getElementById("newBtn").onclick=reset;
-
-document.getElementById("saveBtn").onclick=saveGame;
-
-document.getElementById("loadBtn").onclick=loadGame;
-
-document.getElementById("analyzeBtn").onclick=analyze;
-
-
-document.getElementById("connectBtn").onclick=()=>{
- const id=document.getElementById("peerId").value.trim();
- if(!id) return alert("Enter opponent ID");
- if(!peer) return alert("Online multiplayer not available");
- conn=peer.connect(id);
- conn.on("open",()=>{
-  setupConn();
-  mode="online";
-  playerColor="w";
-  reset();
- });
-};
-
-document.getElementById("engineRetryBtn").onclick=()=>{
- sfInitPromise=null; ready=false;
- try{ if(sf) sf.terminate(); }catch{}
- sf=null;
- setEngineStatus("","Engine: loading…");
- ensureSF().catch(()=>{});
+document.getElementById("engineRetryBtn").onclick = () => {
+  sfInitPromise=null; ready=false;
+  try{ if (sf) sf.terminate(); }catch{}
+  sf=null;
+  setEngineStatus("","Engine: loading…");
+  ensureSF().catch(()=>{});
 };
 
 update();
-
 </script>
 </body>
-</html> 
+</html>
