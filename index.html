@@ -78,16 +78,12 @@ body{
   gap:10px;
 }
 
-#boardWrap{
-  width: min(520px, 92vw);
-}
+#boardWrap{ width: min(520px, 92vw); }
 #board{
   width:100%;
   max-width:92vw;
   border-radius:12px;
   overflow:hidden;
-
-  /* Critical mobile fix: stop page panning while interacting with board */
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
@@ -208,39 +204,33 @@ input{
 }
 
 /* Square highlight overlays — Chess.com style */
-.highlight-sel{
- background: rgba(124,179,66,.45) !important;
-}
-.highlight-hint{
- position:relative;
-}
+.highlight-sel{ background: rgba(124,179,66,.45) !important; }
+.highlight-hint{ position:relative; }
 .highlight-hint::after{
- content:"";
- position:absolute;
- inset:0;
- margin:auto;
- width:26%;
- height:26%;
- border-radius:50%;
- background:rgba(0,0,0,.18);
- pointer-events:none;
+  content:"";
+  position:absolute;
+  inset:0;
+  margin:auto;
+  width:26%;
+  height:26%;
+  border-radius:50%;
+  background:rgba(0,0,0,.18);
+  pointer-events:none;
 }
 /* capture target: ring instead of dot */
-.highlight-capture{
- position:relative;
-}
+.highlight-capture{ position:relative; }
 .highlight-capture::after{
- content:"";
- position:absolute;
- inset:0;
- margin:auto;
- width:82%;
- height:82%;
- border-radius:50%;
- border:5px solid rgba(0,0,0,.18);
- background:transparent;
- pointer-events:none;
- box-sizing:border-box;
+  content:"";
+  position:absolute;
+  inset:0;
+  margin:auto;
+  width:82%;
+  height:82%;
+  border-radius:50%;
+  border:5px solid rgba(0,0,0,.18);
+  background:transparent;
+  pointer-events:none;
+  box-sizing:border-box;
 }
 </style>
 </head>
@@ -251,6 +241,18 @@ input{
     <div class="logo">♟ Chess Arena Pro+</div>
 
     <button class="btn primary" id="aiBtn">Play vs AI</button>
+
+    <!-- NEW: choose side vs AI -->
+    <div class="ratingBox" style="margin-top:0;">
+      <label class="ratingLabel">Play as (vs AI)</label>
+      <select id="colorSelect" style="width:100%;padding:8px;border-radius:8px;border:none;background:#333;color:white;">
+        <option value="random">Random</option>
+        <option value="w">White</option>
+        <option value="b">Black</option>
+      </select>
+      <div class="ratingHint">Random picks a color each time you press “Play vs AI”.</div>
+    </div>
+
     <button class="btn" id="localBtn">Local Multiplayer</button>
 
     <button class="btn" id="analyzeBtn">Analyze Game</button>
@@ -307,7 +309,7 @@ let game = new Chess();
 let board;
 
 let mode = "ai"; // ai, local, online
-let playerColor = "w";
+let playerColor = "w"; // w or b (used for ai + online)
 
 /* ======================
    MOBILE SCROLL LOCK
@@ -428,17 +430,14 @@ async function ensureSF(){
 }
 ensureSF().catch(()=>{});
 
-/* --- Chess.com-like weakness mapping ---
-   Stockfish's docs: low Skill Level increases randomized bias so it doesn't always pick best. */
+/* --- Chess.com-like weakness mapping --- */
 function mapEloToSkill(e){
-  // 400..2800 -> 0..20 (nonlinear to make low end weaker)
   const x = (Math.min(2800, Math.max(400, e)) - 400) / 2400;
   const curved = Math.pow(x, 1.35);
   return Math.max(0, Math.min(20, Math.round(curved * 20)));
 }
 
 function clampUciElo(e){
-  // Stockfish UCI_Elo valid range is 1320..3190
   return Math.min(3190, Math.max(1320, Math.round(e)));
 }
 
@@ -449,18 +448,16 @@ function configureSF(){
 
   if (sfOptions.has("Move Overhead")) sfSend("setoption name Move Overhead value 0");
   if (sfOptions.has("Minimum Thinking Time")) sfSend("setoption name Minimum Thinking Time value 0");
-  if (sfOptions.has("MultiPV")) sfSend("setoption name MultiPV value 1"); // recommended for strength focus
+  if (sfOptions.has("MultiPV")) sfSend("setoption name MultiPV value 1");
 
   const skill = mapEloToSkill(elo);
 
-  // For low Elo, prefer Skill Level randomness (more human blunders).
   if (elo < 1320){
     if (sfOptions.has("UCI_LimitStrength")) sfSend("setoption name UCI_LimitStrength value false");
     if (sfOptions.has("Skill Level")) sfSend("setoption name Skill Level value " + skill);
     return;
   }
 
-  // For 1320+, use real UCI Elo limiting if available.
   if (sfOptions.has("UCI_LimitStrength") && sfOptions.has("UCI_Elo")){
     sfSend("setoption name UCI_LimitStrength value true");
     sfSend("setoption name UCI_Elo value " + clampUciElo(elo));
@@ -477,7 +474,6 @@ async function sfMove(fen){
     busy = true;
     resolveSF = (uci) => { busy=false; res(uci); };
 
-    // Chess.com-ish: low Elo plays fast; high Elo uses more time.
     const movetimeMs =
       elo <= 600  ? 80  :
       elo <= 900  ? 120 :
@@ -539,7 +535,6 @@ let tapFrom = null;
 let tapHints = [];
 
 function squareEl(square){
-  // chessboard.js squares have data-square attr
   return document.querySelector('#board .square-' + square);
 }
 
@@ -571,10 +566,9 @@ function clearTapState(){
 
 function isMyTurnPiece(piece){
   if (!piece) return false;
-  // chess.js piece obj: {type:'p', color:'w'}
-  if (mode === "ai") return piece.color === "w";
+  if (mode === "ai") return piece.color === playerColor;
   if (mode === "online") return piece.color === playerColor;
-  return true; // local: both sides allowed
+  return true; // local
 }
 
 function tryTapMove(toSquare){
@@ -597,7 +591,6 @@ function tryTapMove(toSquare){
   return true;
 }
 
-// Attach DOM click handler for tap-to-move (works because each square has data-square attribute)
 function installTapHandlers(){
   const root = document.getElementById("board");
   root.addEventListener("click", (ev) => {
@@ -606,27 +599,22 @@ function installTapHandlers(){
 
     const square = sq.getAttribute("data-square");
     if (!square) return;
-
     if (game.game_over()) return;
 
-    // If we have a selected from-square, attempt move to clicked square
     if (tapFrom){
-      // Clicking same square cancels (Chess.com-like)
       if (square === tapFrom){ clearTapState(); return; }
       if (tryTapMove(square)) return;
-      // If failed, but clicked another own piece, re-select it
+
       const p = game.get(square);
       if (p && isMyTurnPiece(p)){
         tapFrom = square;
         showTapHints(tapFrom);
       } else {
-        // otherwise just keep selection (or clear—your call). We'll clear for simplicity.
         clearTapState();
       }
       return;
     }
 
-    // No selection yet: select if it's your piece
     const piece = game.get(square);
     if (piece && isMyTurnPiece(piece)){
       tapFrom = square;
@@ -640,18 +628,13 @@ function installTapHandlers(){
 /* ======================
    BOARD (DRAG + DROP)
 ====================== */
-let dragReallyMoved = false;
-
 function onDragStart(source, piece){
   if (game.game_over()) return false;
-  if (mode === "ai" && piece[0] === "b") return false;
+  if (mode === "ai" && piece[0] !== playerColor) return false;
   if (mode === "online" && piece[0] !== playerColor) return false;
 
-  dragReallyMoved = false;
   lockScroll(true);
 
-  // Show hints while dragging — but DON'T clear existing tap state yet.
-  // We only clear if the user actually drags to a different square.
   tapFrom = source;
   showTapHints(source);
 }
@@ -659,7 +642,6 @@ function onDragStart(source, piece){
 function onDrop(source, target){
   lockScroll(false);
 
-  // Same square = user tapped, not dragged. Keep highlights for tap-to-move.
   if (source === target) return "snapback";
 
   clearTapState();
@@ -686,6 +668,14 @@ board = Chessboard("board", {
 });
 
 installTapHandlers();
+
+/* ======================
+   ORIENTATION (NEW)
+====================== */
+function applyOrientation(){
+  // chessboard.js expects 'white' or 'black' [web:2]
+  board.orientation(playerColor === "w" ? "white" : "black");
+}
 
 /* ======================
    AI
@@ -830,13 +820,30 @@ function reset(){
   game.reset();
   board.position("start");
   clearTapState();
+  applyOrientation();
   update();
   updateMoves();
   document.getElementById("review").innerHTML="";
   if (mode==="online" && conn) conn.send({type:"new"});
+
+  // If vs AI and you chose Black, AI goes first
+  if (mode === "ai" && playerColor === "b"){
+    setTimeout(aiMove, 120);
+  }
 }
 
-document.getElementById("aiBtn").onclick = () => { mode="ai"; playerColor="w"; reset(); };
+const colorSelect = document.getElementById("colorSelect");
+function pickColor(v){
+  if (v === "random") return (Math.random() < 0.5 ? "w" : "b");
+  return (v === "b" ? "b" : "w");
+}
+
+document.getElementById("aiBtn").onclick = () => {
+  mode="ai";
+  playerColor = pickColor(colorSelect.value);
+  reset();
+};
+
 document.getElementById("localBtn").onclick = () => { mode="local"; reset(); };
 document.getElementById("newBtn").onclick = reset;
 document.getElementById("saveBtn").onclick = saveGame;
@@ -864,6 +871,7 @@ document.getElementById("engineRetryBtn").onclick = () => {
   ensureSF().catch(()=>{});
 };
 
+applyOrientation();
 update();
 </script>
 </body>
